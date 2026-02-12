@@ -206,6 +206,20 @@ async function handleBranch(
 
 	// If not in queue, create one by detecting info from the branch
 	if (entry === null) {
+		// Validate that the branch exists before attempting any git operations
+		const verifyProc = Bun.spawn(["git", "rev-parse", "--verify", `refs/heads/${branchName}`], {
+			cwd: repoRoot,
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const verifyExit = await verifyProc.exited;
+		if (verifyExit !== 0) {
+			throw new ValidationError(`Branch "${branchName}" not found`, {
+				field: "branch",
+				value: branchName,
+			});
+		}
+
 		const agentName = parseAgentName(branchName);
 		const beadId = parseBeadId(branchName);
 		const filesModified = await detectModifiedFiles(repoRoot, canonicalBranch, branchName);

@@ -156,5 +156,5 @@ async function loadSessions(sessionsPath: string): Promise<AgentSession[]> {
  * @param sessions - The sessions array to persist
  */
 async function saveSessions(sessionsPath: string, sessions: AgentSession[]): Promise<void> {
-	await Bun.write(sessionsPath, JSON.stringify(sessions, null, "\t"));
+	await Bun.write(sessionsPath, `${JSON.stringify(sessions, null, "\t")}\n`);
 }

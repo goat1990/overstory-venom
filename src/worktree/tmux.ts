@@ -74,17 +74,34 @@ async function runCommand(
  * @param name - Session name (e.g., "overstory-auth-login")
  * @param cwd - Working directory for the session
  * @param command - Command to execute inside the session
+ * @param env - Optional environment variables to export in the session
  * @returns The PID of the tmux server process for this session
  * @throws AgentError if tmux is not installed or session creation fails
  */
-export async function createSession(name: string, cwd: string, command: string): Promise<number> {
-	// Ensure the tmux session's PATH includes the overstory binary directory
+export async function createSession(
+	name: string,
+	cwd: string,
+	command: string,
+	env?: Record<string, string>,
+): Promise<number> {
+	// Build environment exports for the tmux session
+	const exports: string[] = [];
+
+	// Ensure PATH includes the overstory binary directory
 	// so that hooks calling `overstory` inside the session can find it
 	const overstoryBinDir = await detectOverstoryBinDir();
-	let wrappedCommand = command;
 	if (overstoryBinDir) {
-		wrappedCommand = `export PATH="${overstoryBinDir}:$PATH" && ${command}`;
+		exports.push(`export PATH="${overstoryBinDir}:$PATH"`);
 	}
+
+	// Add any additional environment variables
+	if (env) {
+		for (const [key, value] of Object.entries(env)) {
+			exports.push(`export ${key}="${value}"`);
+		}
+	}
+
+	const wrappedCommand = exports.length > 0 ? `${exports.join(" && ")} && ${command}` : command;
 
 	const { exitCode, stderr } = await runCommand(
 		["tmux", "new-session", "-d", "-s", name, "-c", cwd, wrappedCommand],

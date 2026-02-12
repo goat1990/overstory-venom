@@ -59,8 +59,27 @@ function handleSend(args: string[], cwd: string): void {
 	const subject = getFlag(args, "--subject");
 	const body = getFlag(args, "--body");
 	const from = getFlag(args, "--agent") ?? getFlag(args, "--from") ?? "orchestrator";
-	const type = (getFlag(args, "--type") ?? "status") as MailMessage["type"];
-	const priority = (getFlag(args, "--priority") ?? "normal") as MailMessage["priority"];
+	const VALID_TYPES = ["status", "question", "result", "error"] as const;
+	const VALID_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+
+	const rawType = getFlag(args, "--type") ?? "status";
+	const rawPriority = getFlag(args, "--priority") ?? "normal";
+
+	if (!VALID_TYPES.includes(rawType as MailMessage["type"])) {
+		throw new ValidationError(
+			`Invalid --type "${rawType}". Must be one of: ${VALID_TYPES.join(", ")}`,
+			{ field: "type", value: rawType },
+		);
+	}
+	if (!VALID_PRIORITIES.includes(rawPriority as MailMessage["priority"])) {
+		throw new ValidationError(
+			`Invalid --priority "${rawPriority}". Must be one of: ${VALID_PRIORITIES.join(", ")}`,
+			{ field: "priority", value: rawPriority },
+		);
+	}
+
+	const type = rawType as MailMessage["type"];
+	const priority = rawPriority as MailMessage["priority"];
 
 	if (!to) {
 		throw new ValidationError("--to is required for mail send", { field: "to" });

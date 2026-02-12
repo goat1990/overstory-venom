@@ -64,7 +64,7 @@ async function updateLastActivity(projectRoot: string, agentName: string): Promi
 		const session = sessions.find((s) => s.agentName === agentName);
 		if (session) {
 			session.lastActivity = new Date().toISOString();
-			await Bun.write(sessionsPath, JSON.stringify(sessions, null, "\t"));
+			await Bun.write(sessionsPath, `${JSON.stringify(sessions, null, "\t")}\n`);
 		}
 	} catch {
 		// Non-fatal: don't break logging if session update fails

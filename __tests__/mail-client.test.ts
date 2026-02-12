@@ -416,6 +416,20 @@ describe("createMailClient", () => {
 			expect(msg).not.toBeNull();
 			expect(msg?.read).toBe(true);
 		});
+
+		test("throws MailError when message does not exist", () => {
+			expect(() => client.markRead("nonexistent-id")).toThrow(MailError);
+		});
+
+		test("MailError includes the missing message ID", () => {
+			try {
+				client.markRead("bad-msg-id");
+				expect(true).toBe(false);
+			} catch (err) {
+				expect(err).toBeInstanceOf(MailError);
+				expect((err as MailError).message).toContain("bad-msg-id");
+			}
+		});
 	});
 
 	describe("reply", () => {

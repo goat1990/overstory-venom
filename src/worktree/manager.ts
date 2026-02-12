@@ -130,16 +130,17 @@ export async function listWorktrees(
 }
 
 /**
- * Remove a git worktree and optionally delete its branch if merged.
+ * Remove a git worktree and delete its associated branch.
  *
  * Runs `git worktree remove {path}` to remove the worktree, then
- * attempts `git branch -d {branch}` to delete the branch (only succeeds
- * if the branch has been merged; unmerged branches are left intact).
+ * deletes the branch. With `forceBranch: true`, uses `git branch -D`
+ * to force-delete even unmerged branches. Otherwise uses `git branch -d`
+ * which only deletes merged branches.
  */
 export async function removeWorktree(
 	repoRoot: string,
 	path: string,
-	options?: { force?: boolean },
+	options?: { force?: boolean; forceBranch?: boolean },
 ): Promise<void> {
 	// First, figure out which branch this worktree is on so we can clean it up
 	const worktrees = await listWorktrees(repoRoot);
@@ -156,12 +157,16 @@ export async function removeWorktree(
 		branchName,
 	});
 
-	// Try to delete the branch if it was merged. If it fails (unmerged), that's OK.
+	// Delete the associated branch after worktree removal.
+	// Use -D (force) when forceBranch is set, since the branch may not have
+	// been merged yet. Use -d (safe) otherwise, which only deletes merged branches.
 	if (branchName.length > 0) {
+		const deleteFlag = options?.forceBranch ? "-D" : "-d";
 		try {
-			await runGit(repoRoot, ["branch", "-d", branchName], { branchName });
+			await runGit(repoRoot, ["branch", deleteFlag, branchName], { branchName });
 		} catch {
-			// Branch not yet merged — leave it. This is expected behavior.
+			// Branch deletion failed — may be unmerged (with -d) or checked out elsewhere.
+			// This is best-effort; the worktree itself is already removed.
 		}
 	}
 }

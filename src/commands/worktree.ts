@@ -39,7 +39,7 @@ async function loadSessions(root: string): Promise<AgentSession[]> {
  */
 async function saveSessions(root: string, sessions: AgentSession[]): Promise<void> {
 	const path = join(root, ".overstory", "sessions.json");
-	await Bun.write(path, JSON.stringify(sessions, null, "\t"));
+	await Bun.write(path, `${JSON.stringify(sessions, null, "\t")}\n`);
 }
 
 /**
@@ -118,9 +118,12 @@ async function handleClean(args: string[], root: string, json: boolean): Promise
 			}
 		}
 
-		// Remove worktree (force when --all to handle untracked files)
+		// Remove worktree and its branch.
+		// Force worktree removal when --all to handle untracked files.
+		// Always force-delete the branch since we're cleaning up finished/zombie agents
+		// whose branches are typically unmerged.
 		try {
-			await removeWorktree(root, wt.path, { force: all });
+			await removeWorktree(root, wt.path, { force: all, forceBranch: true });
 			cleaned.push(wt.branch);
 
 			if (!json) {
@@ -135,22 +138,45 @@ async function handleClean(args: string[], root: string, json: boolean): Promise
 	}
 
 	// Update sessions.json — mark cleaned sessions as zombie
-	const updatedSessions = sessions.map((s) => {
+	const markedSessions = sessions.map((s) => {
 		if (cleaned.some((branch) => s.branchName === branch)) {
 			return { ...s, state: "zombie" as const };
 		}
 		return s;
 	});
-	await saveSessions(root, updatedSessions);
+
+	// Prune zombie entries whose worktree paths no longer exist on disk.
+	// This prevents sessions.json from growing unbounded with stale entries.
+	const remainingWorktrees = await listWorktrees(root);
+	const worktreePaths = new Set(remainingWorktrees.map((wt) => wt.path));
+	const prunedSessions: AgentSession[] = [];
+	let pruneCount = 0;
+
+	for (const session of markedSessions) {
+		if (session.state === "zombie" && !worktreePaths.has(session.worktreePath)) {
+			pruneCount++;
+		} else {
+			prunedSessions.push(session);
+		}
+	}
+
+	await saveSessions(root, prunedSessions);
 
 	if (json) {
-		process.stdout.write(`${JSON.stringify({ cleaned })}\n`);
-	} else if (cleaned.length === 0) {
+		process.stdout.write(`${JSON.stringify({ cleaned, pruned: pruneCount })}\n`);
+	} else if (cleaned.length === 0 && pruneCount === 0) {
 		process.stdout.write("No worktrees to clean.\n");
 	} else {
-		process.stdout.write(
-			`\nCleaned ${cleaned.length} worktree${cleaned.length === 1 ? "" : "s"}.\n`,
-		);
+		if (cleaned.length > 0) {
+			process.stdout.write(
+				`\nCleaned ${cleaned.length} worktree${cleaned.length === 1 ? "" : "s"}.\n`,
+			);
+		}
+		if (pruneCount > 0) {
+			process.stdout.write(
+				`Pruned ${pruneCount} zombie session${pruneCount === 1 ? "" : "s"} from sessions.json.\n`,
+			);
+		}
 	}
 }
 

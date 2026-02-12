@@ -112,6 +112,12 @@ export function createMailClient(store: MailStore): MailClient {
 		},
 
 		markRead(id): void {
+			const msg = store.getById(id);
+			if (!msg) {
+				throw new MailError(`Message not found: ${id}`, {
+					messageId: id,
+				});
+			}
 			store.markRead(id);
 		},
 

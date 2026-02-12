@@ -59,7 +59,7 @@ async function loadSessions(sessionsPath: string): Promise<AgentSession[]> {
  * Save the sessions registry to .overstory/sessions.json.
  */
 async function saveSessions(sessionsPath: string, sessions: AgentSession[]): Promise<void> {
-	await Bun.write(sessionsPath, JSON.stringify(sessions, null, "\t"));
+	await Bun.write(sessionsPath, `${JSON.stringify(sessions, null, "\t")}\n`);
 }
 
 /**
@@ -120,6 +120,18 @@ export async function slingCommand(args: string[]): Promise<void> {
 			field: "depth",
 			value: depthStr,
 		});
+	}
+
+	// Validate that spec file exists if provided
+	if (specPath !== null) {
+		const specFile = Bun.file(specPath);
+		const specExists = await specFile.exists();
+		if (!specExists) {
+			throw new ValidationError(`Spec file not found: ${specPath}`, {
+				field: "spec",
+				value: specPath,
+			});
+		}
 	}
 
 	const fileScope = filesRaw ? filesRaw.split(",").map((f) => f.trim()) : [];
@@ -239,7 +251,9 @@ export async function slingCommand(args: string[]): Promise<void> {
 	// 11. Create tmux session running claude
 	const tmuxSessionName = `overstory-${name}`;
 	const claudeCmd = "claude --dangerously-skip-permissions";
-	const pid = await createSession(tmuxSessionName, worktreePath, claudeCmd);
+	const pid = await createSession(tmuxSessionName, worktreePath, claudeCmd, {
+		OVERSTORY_AGENT_NAME: name,
+	});
 
 	// 12. Record session
 	const session: AgentSession = {

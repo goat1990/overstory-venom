@@ -176,52 +176,63 @@ function formatYamlValue(value: unknown): string {
  * Build the starter agent manifest.
  */
 function buildAgentManifest(): AgentManifest {
-	return {
-		version: "1.0",
-		agents: {
-			scout: {
-				file: "scout.md",
-				model: "haiku",
-				tools: ["Read", "Glob", "Grep", "Bash"],
-				capabilities: ["explore", "research"],
-				canSpawn: false,
-				constraints: ["read-only"],
-			},
-			builder: {
-				file: "builder.md",
-				model: "sonnet",
-				tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
-				capabilities: ["implement", "refactor", "fix"],
-				canSpawn: false,
-				constraints: [],
-			},
-			reviewer: {
-				file: "reviewer.md",
-				model: "sonnet",
-				tools: ["Read", "Glob", "Grep", "Bash"],
-				capabilities: ["review", "validate"],
-				canSpawn: false,
-				constraints: ["read-only"],
-			},
-			lead: {
-				file: "lead.md",
-				model: "opus",
-				tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"],
-				capabilities: ["coordinate", "implement", "review"],
-				canSpawn: true,
-				constraints: [],
-			},
-			merger: {
-				file: "merger.md",
-				model: "sonnet",
-				tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
-				capabilities: ["merge", "resolve-conflicts"],
-				canSpawn: false,
-				constraints: [],
-			},
+	const agents: AgentManifest["agents"] = {
+		scout: {
+			file: "scout.md",
+			model: "haiku",
+			tools: ["Read", "Glob", "Grep", "Bash"],
+			capabilities: ["explore", "research"],
+			canSpawn: false,
+			constraints: ["read-only"],
 		},
-		capabilityIndex: {},
+		builder: {
+			file: "builder.md",
+			model: "sonnet",
+			tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+			capabilities: ["implement", "refactor", "fix"],
+			canSpawn: false,
+			constraints: [],
+		},
+		reviewer: {
+			file: "reviewer.md",
+			model: "sonnet",
+			tools: ["Read", "Glob", "Grep", "Bash"],
+			capabilities: ["review", "validate"],
+			canSpawn: false,
+			constraints: ["read-only"],
+		},
+		lead: {
+			file: "lead.md",
+			model: "opus",
+			tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"],
+			capabilities: ["coordinate", "implement", "review"],
+			canSpawn: true,
+			constraints: [],
+		},
+		merger: {
+			file: "merger.md",
+			model: "sonnet",
+			tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+			capabilities: ["merge", "resolve-conflicts"],
+			canSpawn: false,
+			constraints: [],
+		},
 	};
+
+	// Build capability index: map each capability to agent names that declare it
+	const capabilityIndex: Record<string, string[]> = {};
+	for (const [name, def] of Object.entries(agents)) {
+		for (const cap of def.capabilities) {
+			const existing = capabilityIndex[cap];
+			if (existing) {
+				existing.push(name);
+			} else {
+				capabilityIndex[cap] = [name];
+			}
+		}
+	}
+
+	return { version: "1.0", agents, capabilityIndex };
 }
 
 /**
@@ -312,46 +323,37 @@ async function buildHooksJson(overstoryRoot: string): Promise<string> {
 }
 
 /**
- * Gitignore entries that overstory needs.
+ * Content for .overstory/.gitignore — runtime state that should not be tracked.
+ * Paths are relative to .overstory/ directory.
+ * Config files (config.yaml, agent-manifest.json, hooks.json) remain tracked.
  */
-const GITIGNORE_ENTRIES = [
-	"",
-	"# Overstory",
-	".overstory/worktrees/",
-	".overstory/logs/",
-	".overstory/mail.db",
-	".overstory/mail.db-wal",
-	".overstory/mail.db-shm",
-	".overstory/metrics.db",
-	".overstory/metrics.db-wal",
-	".overstory/metrics.db-shm",
-];
+const OVERSTORY_GITIGNORE = `# Runtime state (auto-generated, do not edit)
+worktrees/
+logs/
+mail.db
+mail.db-wal
+mail.db-shm
+metrics.db
+metrics.db-wal
+metrics.db-shm
+sessions.json
+agents/
+specs/
+`;
 
 /**
- * Update .gitignore to include overstory entries.
- * Appends if the file exists, creates if not.
- * Skips entries that already exist.
+ * Create .overstory/.gitignore for runtime state files.
+ * Follows the same pattern as .beads/.gitignore.
  */
-async function updateGitignore(projectRoot: string): Promise<boolean> {
-	const gitignorePath = join(projectRoot, ".gitignore");
+async function writeOverstoryGitignore(overstoryPath: string): Promise<boolean> {
+	const gitignorePath = join(overstoryPath, ".gitignore");
 	const file = Bun.file(gitignorePath);
 
-	let existingContent = "";
 	if (await file.exists()) {
-		existingContent = await file.text();
-	}
-
-	// Check if overstory section already exists
-	if (existingContent.includes("# Overstory")) {
 		return false;
 	}
 
-	// Ensure existing content ends with a newline before appending
-	const prefix = existingContent.length > 0 && !existingContent.endsWith("\n") ? "\n" : "";
-
-	const newContent = `${existingContent}${prefix}${GITIGNORE_ENTRIES.join("\n")}\n`;
-	await Bun.write(gitignorePath, newContent);
-
+	await Bun.write(gitignorePath, OVERSTORY_GITIGNORE);
 	return true;
 }
 
@@ -476,12 +478,12 @@ export async function initCommand(args: string[]): Promise<void> {
 	await Bun.write(hooksPath, hooksContent);
 	printCreated(`${OVERSTORY_DIR}/hooks.json`);
 
-	// 7. Update .gitignore
-	const gitignoreUpdated = await updateGitignore(projectRoot);
-	if (gitignoreUpdated) {
-		printCreated(".gitignore (updated)");
+	// 7. Write .overstory/.gitignore for runtime state
+	const gitignoreCreated = await writeOverstoryGitignore(overstoryPath);
+	if (gitignoreCreated) {
+		printCreated(`${OVERSTORY_DIR}/.gitignore`);
 	} else {
-		printSkipped(".gitignore", "overstory entries already present");
+		printSkipped(`${OVERSTORY_DIR}/.gitignore`, "already exists");
 	}
 
 	process.stdout.write("\nDone. Run `overstory status` to see the current state.\n");

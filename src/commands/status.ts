@@ -100,7 +100,7 @@ async function gatherStatus(root: string): Promise<StatusData> {
 	if (sessionsUpdated) {
 		try {
 			const sessionsPath = join(root, ".overstory", "sessions.json");
-			await Bun.write(sessionsPath, JSON.stringify(sessions, null, "\t"));
+			await Bun.write(sessionsPath, `${JSON.stringify(sessions, null, "\t")}\n`);
 		} catch {
 			// Best effort: don't fail status display if write fails
 		}
