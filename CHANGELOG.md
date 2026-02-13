@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-13
+
 ### Added
 
 #### Coordinator & Supervisor Agents
@@ -120,5 +122,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Biome configuration for formatting and linting
 - TypeScript strict mode with `noUncheckedIndexedAccess`
 
-[Unreleased]: https://github.com/jayminwest/overstory/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jayminwest/overstory/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jayminwest/overstory/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jayminwest/overstory/releases/tag/v0.1.0

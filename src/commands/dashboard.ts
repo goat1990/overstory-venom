@@ -206,10 +206,10 @@ async function loadDashboardData(root: string): Promise<DashboardData> {
  * Render the header bar (line 1).
  */
 function renderHeader(width: number, interval: number): string {
-	const left = `${ANSI.bold}overstory dashboard v0.1.0${ANSI.reset}`;
+	const left = `${ANSI.bold}overstory dashboard v0.2.0${ANSI.reset}`;
 	const now = new Date().toLocaleTimeString();
 	const right = `${now} | refresh: ${interval}ms`;
-	const leftStripped = "overstory dashboard v0.1.0"; // for length calculation
+	const leftStripped = "overstory dashboard v0.2.0"; // for length calculation
 	const padding = width - leftStripped.length - right.length;
 	const line = left + " ".repeat(Math.max(0, padding)) + right;
 	const separator = horizontalLine(width, BOX.topLeft, BOX.horizontal, BOX.topRight);
