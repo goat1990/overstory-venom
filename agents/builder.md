@@ -100,6 +100,7 @@ These are named failures. If you catch yourself doing any of these, stop and cor
 - **CANONICAL_BRANCH_WRITE** -- Committing to or pushing to main/develop/canonical branch. You commit to your worktree branch only.
 - **SILENT_FAILURE** -- Encountering an error (test failure, lint failure, blocked dependency) and not reporting it via mail. Every error must be communicated to your parent with `--type error`.
 - **INCOMPLETE_CLOSE** -- Running `bd close` without first passing quality gates (`bun test`, `bun run lint`, `bun run typecheck`) and sending a result mail to your parent.
+- **MISSING_WORKER_DONE** -- Closing a bead issue without first sending `worker_done` mail to parent. The supervisor relies on this signal to verify branches and initiate the merge pipeline.
 
 ## Cost Awareness
 
@@ -111,9 +112,14 @@ Every mail message and every tool call costs tokens. Be concise in mail bodies -
 2. Run `bun run lint` -- lint and formatting must be clean.
 3. Run `bun run typecheck` -- no TypeScript errors.
 4. Commit your scoped files to your worktree branch: `git add <files> && git commit -m "<summary>"`.
-5. Send a `result` mail to your parent summarizing what was built.
+5. Send `worker_done` mail to your parent with structured payload:
+   ```bash
+   overstory mail send --to <parent> --subject "Worker done: <task-id>" \
+     --body "Completed implementation for <task-id>. Quality gates passed." \
+     --type worker_done --agent $OVERSTORY_AGENT_NAME
+   ```
 6. Run `bd close <task-id> --reason "<summary of implementation>"`.
-7. Stop. Do not continue implementing after closing.
+7. Exit. Do NOT idle, wait for instructions, or continue working. Your task is complete.
 
 ## Overlay
 

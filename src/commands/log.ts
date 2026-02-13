@@ -132,8 +132,9 @@ Arguments:
   <event>            Event type: tool-start, tool-end, session-end
 
 Options:
-  --agent <name>     Agent name (required)
-  --help, -h         Show this help`;
+  --agent <name>       Agent name (required)
+  --tool-name <name>   Tool name (for tool-start/tool-end events)
+  --help, -h           Show this help`;
 
 export async function logCommand(args: string[]): Promise<void> {
 	if (args.includes("--help") || args.includes("-h")) {
@@ -143,6 +144,7 @@ export async function logCommand(args: string[]): Promise<void> {
 
 	const event = args.find((a) => !a.startsWith("--"));
 	const agentName = getFlag(args, "--agent");
+	const toolName = getFlag(args, "--tool-name") ?? "unknown";
 
 	if (!event) {
 		throw new ValidationError("Event is required: overstory log <event> --agent <name>", {
@@ -178,11 +180,11 @@ export async function logCommand(args: string[]): Promise<void> {
 
 	switch (event) {
 		case "tool-start":
-			logger.toolStart("hook-captured", {});
+			logger.toolStart(toolName, {});
 			await updateLastActivity(config.project.root, agentName);
 			break;
 		case "tool-end":
-			logger.toolEnd("hook-captured", 0);
+			logger.toolEnd(toolName, 0);
 			await updateLastActivity(config.project.root, agentName);
 			break;
 		case "session-end":

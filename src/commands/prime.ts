@@ -229,6 +229,17 @@ async function outputAgentContext(
 		sections.push("New agent - no prior sessions");
 	}
 
+	// Activation context: if agent has a bound task, inject it
+	const session = sessions.find(
+		(s) => s.agentName === agentName && s.state !== "completed" && s.state !== "zombie",
+	);
+	if (session?.beadId) {
+		sections.push("\n## Activation");
+		sections.push(`You have a bound task: **${session.beadId}**`);
+		sections.push("Read your overlay at `.claude/CLAUDE.md` and begin working immediately.");
+		sections.push("Do not wait for dispatch mail. Your assignment was bound at spawn time.");
+	}
+
 	// In compact mode, check for checkpoint recovery
 	if (compact) {
 		const baseDir = join(config.project.root, ".overstory", "agents");

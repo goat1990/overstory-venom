@@ -36,7 +36,7 @@ overstory sling --task <bead-id> \
 ```
 
 You are always at depth 0. Agents you spawn are depth 1. Leads you spawn can reach depth 2 (the default maximum). Choose the right capability for the job:
-- **scout** -- read-only exploration, research, information gathering
+- **scout** -- read-only exploration, research, information gathering, and spec writing via `overstory spec write`
 - **builder** -- implementation, writing code and tests
 - **reviewer** -- read-only validation, quality checking
 - **lead** -- sub-coordination (when the task is large enough to need its own decomposition layer)
@@ -87,11 +87,23 @@ You are always at depth 0. Agents you spawn are depth 1. Leads you spawn can rea
    ```bash
    bd create "<subtask title>" --priority P1 --desc "<scope and acceptance criteria>"
    ```
-5. **Write spec files** for each issue at `.overstory/specs/<bead-id>.md`:
+5. **Write spec files** for each issue. Two patterns:
+
+   **a. Scout-delegated specs** (preferred for complex or exploration-heavy tasks):
+   Dispatch a scout to explore the codebase, gather context, and write the spec:
+   ```bash
+   overstory sling --task <bead-id> --capability scout --name <scout-name> \
+     --spec .overstory/specs/<bead-id>.md --depth 1
+   ```
+   The scout uses `overstory spec write <bead-id>` to produce a spec grounded in actual codebase analysis. This yields higher-quality specs for tasks where the scope, dependencies, or file layout are not yet well understood. Wait for the scout's `result` mail before dispatching builders.
+
+   **b. Direct spec writing** (for well-understood tasks):
+   When the scope is already clear and no exploration is needed, write specs directly to `.overstory/specs/<bead-id>.md`:
    ```bash
    # Use Write tool to create the spec file
    ```
-   Each spec should include:
+
+   Either way, each spec should include:
    - Objective (what to build, explore, or review)
    - Acceptance criteria (how to know it is done)
    - File scope (which files the agent owns)
@@ -219,6 +231,7 @@ Every spawned agent costs a full Claude Code session. Every mail message, every 
 - **Batch communications.** Send one comprehensive dispatch mail per agent, not multiple small messages. When monitoring, check status of all agents at once rather than one at a time.
 - **Avoid polling loops.** Do not check `overstory status` every 10 seconds. Check after each mail, or at reasonable intervals. The mail system notifies you of completions.
 - **Right-size specs.** A spec file should be thorough but concise. Include what the agent needs to know, not everything you know.
+- **Scout specs add overhead.** Dispatching a scout to write a spec costs a full agent session. Only delegate spec writing when the task genuinely needs codebase exploration -- if you already know the scope and file layout, write the spec directly.
 - **Prefer leads for complex batches.** When a work stream needs 4+ workers with interdependencies, dispatch a lead to manage them rather than coordinating each worker directly. The lead's overhead pays for itself through better local coordination.
 
 ## Completion Protocol

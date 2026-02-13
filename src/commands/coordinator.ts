@@ -88,8 +88,19 @@ export function buildCoordinatorBeacon(): string {
  * 6. Send startup beacon
  * 7. Record session in sessions.json
  */
+/**
+ * Determine whether to auto-attach to the tmux session after starting.
+ * Exported for testing.
+ */
+export function resolveAttach(args: string[], isTTY: boolean): boolean {
+	if (args.includes("--attach")) return true;
+	if (args.includes("--no-attach")) return false;
+	return isTTY;
+}
+
 async function startCoordinator(args: string[]): Promise<void> {
 	const json = args.includes("--json");
+	const shouldAttach = resolveAttach(args, !!process.stdout.isTTY);
 	const cwd = process.cwd();
 	const config = await loadConfig(cwd);
 	const projectRoot = config.project.root;
@@ -182,6 +193,12 @@ async function startCoordinator(args: string[]): Promise<void> {
 		process.stdout.write(`  Tmux:    ${TMUX_SESSION}\n`);
 		process.stdout.write(`  Root:    ${projectRoot}\n`);
 		process.stdout.write(`  PID:     ${pid}\n`);
+	}
+
+	if (shouldAttach) {
+		Bun.spawnSync(["tmux", "attach-session", "-t", TMUX_SESSION], {
+			stdio: ["inherit", "inherit", "inherit"],
+		});
 	}
 }
 
@@ -291,7 +308,12 @@ Subcommands:
   stop                     Stop the coordinator (kills tmux session)
   status                   Show coordinator state
 
-Options:
+Start options:
+  --attach                 Always attach to tmux session after start
+  --no-attach              Never attach to tmux session after start
+                           Default: attach when running in an interactive TTY
+
+General options:
   --json                   Output as JSON
   --help, -h               Show this help
 

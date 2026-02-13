@@ -66,9 +66,8 @@ mock.module("../agents/hooks-deployer.ts", () => ({
 }));
 
 // Import AFTER mocks are registered
-const { buildCoordinatorBeacon, coordinatorCommand, loadSessions, saveSessions } = await import(
-	"./coordinator.ts"
-);
+const { buildCoordinatorBeacon, coordinatorCommand, loadSessions, resolveAttach, saveSessions } =
+	await import("./coordinator.ts");
 
 // --- Test Setup ---
 
@@ -159,6 +158,12 @@ describe("coordinatorCommand help", () => {
 		expect(output).toContain("start");
 		expect(output).toContain("stop");
 		expect(output).toContain("status");
+	});
+
+	test("--help includes --attach and --no-attach flags", async () => {
+		const output = await captureStdout(() => coordinatorCommand(["--help"]));
+		expect(output).toContain("--attach");
+		expect(output).toContain("--no-attach");
 	});
 
 	test("-h outputs help text", async () => {
@@ -490,6 +495,34 @@ describe("buildCoordinatorBeacon", () => {
 		// Should have exactly 2 " — " separators (3 parts)
 		const dashes = beacon.split(" — ");
 		expect(dashes).toHaveLength(3);
+	});
+});
+
+describe("resolveAttach", () => {
+	test("--attach flag forces attach regardless of TTY", () => {
+		expect(resolveAttach(["--attach"], false)).toBe(true);
+		expect(resolveAttach(["--attach"], true)).toBe(true);
+	});
+
+	test("--no-attach flag forces no attach regardless of TTY", () => {
+		expect(resolveAttach(["--no-attach"], false)).toBe(false);
+		expect(resolveAttach(["--no-attach"], true)).toBe(false);
+	});
+
+	test("--attach takes precedence when both flags are present", () => {
+		expect(resolveAttach(["--attach", "--no-attach"], false)).toBe(true);
+		expect(resolveAttach(["--attach", "--no-attach"], true)).toBe(true);
+	});
+
+	test("defaults to TTY state when no flag is set", () => {
+		expect(resolveAttach([], true)).toBe(true);
+		expect(resolveAttach([], false)).toBe(false);
+	});
+
+	test("works with other flags present", () => {
+		expect(resolveAttach(["--json", "--attach"], false)).toBe(true);
+		expect(resolveAttach(["--json", "--no-attach"], true)).toBe(false);
+		expect(resolveAttach(["--json"], true)).toBe(true);
 	});
 });
 

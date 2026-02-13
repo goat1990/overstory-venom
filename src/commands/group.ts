@@ -84,7 +84,12 @@ async function getIssueStatus(id: string): Promise<string | null> {
 		if (exitCode !== 0) {
 			return null;
 		}
-		const data = JSON.parse(stdout) as { status?: string };
+		// bd show --json returns an array with a single element
+		const arr = JSON.parse(stdout) as { status?: string }[];
+		const data = arr[0];
+		if (!data) {
+			return null;
+		}
 		return data.status ?? null;
 	} catch {
 		return null;
@@ -276,6 +281,32 @@ async function getGroupProgress(
 		group.completedAt = new Date().toISOString();
 		await saveGroups(projectRoot, groups);
 		process.stdout.write(`Group "${group.name}" (${group.id}) auto-closed: all issues done\n`);
+
+		// Notify coordinator via mail (best-effort)
+		try {
+			const mailDbPath = join(projectRoot, ".overstory", "mail.db");
+			const mailDbFile = Bun.file(mailDbPath);
+			if (await mailDbFile.exists()) {
+				const { createMailStore } = await import("../mail/store.ts");
+				const mailStore = createMailStore(mailDbPath);
+				try {
+					mailStore.insert({
+						id: "",
+						from: "system",
+						to: "coordinator",
+						subject: `Group auto-closed: ${group.name}`,
+						body: `Task group ${group.id} ("${group.name}") completed. All ${total} member issues are closed.`,
+						type: "status",
+						priority: "normal",
+						threadId: null,
+					});
+				} finally {
+					mailStore.close();
+				}
+			}
+		} catch {
+			// Non-fatal: mail notification is best-effort
+		}
 	}
 
 	return { group, total, completed, inProgress, blocked, open };
