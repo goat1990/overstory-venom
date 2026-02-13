@@ -351,29 +351,10 @@ export async function slingCommand(args: string[]): Promise<void> {
 		OVERSTORY_AGENT_NAME: name,
 	});
 
-	// 11b. Send beacon prompt via tmux send-keys
-	// Allow Claude Code time to initialize its TUI before sending input.
-	// 3s gives the TUI enough time to render and attach its input handler.
-	await Bun.sleep(3_000);
-	const beacon = buildBeacon({
-		agentName: name,
-		capability,
-		taskId,
-		parentAgent,
-		depth,
-	});
-	await sendKeys(tmuxSessionName, beacon);
-
-	// 11c. Send a follow-up Enter after a short delay to ensure submission.
-	// Claude Code's TUI may consume the first Enter during initialization,
-	// leaving the beacon text visible but unsubmitted (overstory-yhv6).
-	// A redundant Enter on an empty input line is harmless.
-	await Bun.sleep(500);
-	await sendKeys(tmuxSessionName, "");
-
-	// 12. Record session
-	// Initial state is 'booting' — hooks (SessionStart, PreToolUse) will
-	// transition to 'working' when the agent begins processing.
+	// 12. Record session BEFORE sending the beacon so that hook-triggered
+	// updateLastActivity() can find the entry and transition booting->working.
+	// Without this, a race exists: hooks fire before sessions.json is written,
+	// leaving the agent stuck in "booting" (overstory-036f).
 	const session: AgentSession = {
 		id: `session-${Date.now()}-${name}`,
 		agentName: name,
@@ -392,6 +373,26 @@ export async function slingCommand(args: string[]): Promise<void> {
 
 	sessions.push(session);
 	await saveSessions(sessionsPath, sessions);
+
+	// 12b. Send beacon prompt via tmux send-keys
+	// Allow Claude Code time to initialize its TUI before sending input.
+	// 3s gives the TUI enough time to render and attach its input handler.
+	await Bun.sleep(3_000);
+	const beacon = buildBeacon({
+		agentName: name,
+		capability,
+		taskId,
+		parentAgent,
+		depth,
+	});
+	await sendKeys(tmuxSessionName, beacon);
+
+	// 12c. Send a follow-up Enter after a short delay to ensure submission.
+	// Claude Code's TUI may consume the first Enter during initialization,
+	// leaving the beacon text visible but unsubmitted (overstory-yhv6).
+	// A redundant Enter on an empty input line is harmless.
+	await Bun.sleep(500);
+	await sendKeys(tmuxSessionName, "");
 
 	// 13. Output result
 	const output = {

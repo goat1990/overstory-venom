@@ -149,16 +149,10 @@ async function startCoordinator(args: string[]): Promise<void> {
 		OVERSTORY_AGENT_NAME: COORDINATOR_NAME,
 	});
 
-	// Send beacon after TUI initialization delay
-	await Bun.sleep(3_000);
-	const beacon = buildCoordinatorBeacon();
-	await sendKeys(TMUX_SESSION, beacon);
-
-	// Follow-up Enter to ensure submission (same pattern as sling.ts)
-	await Bun.sleep(500);
-	await sendKeys(TMUX_SESSION, "");
-
-	// Record session
+	// Record session BEFORE sending the beacon so that hook-triggered
+	// updateLastActivity() can find the entry and transition booting->working.
+	// Without this, a race exists: hooks fire before sessions.json is written,
+	// leaving the coordinator stuck in "booting" (overstory-036f).
 	const session: AgentSession = {
 		id: `session-${Date.now()}-${COORDINATOR_NAME}`,
 		agentName: COORDINATOR_NAME,
@@ -177,6 +171,15 @@ async function startCoordinator(args: string[]): Promise<void> {
 
 	sessions.push(session);
 	await saveSessions(sessionsPath, sessions);
+
+	// Send beacon after TUI initialization delay
+	await Bun.sleep(3_000);
+	const beacon = buildCoordinatorBeacon();
+	await sendKeys(TMUX_SESSION, beacon);
+
+	// Follow-up Enter to ensure submission (same pattern as sling.ts)
+	await Bun.sleep(500);
+	await sendKeys(TMUX_SESSION, "");
 
 	const output = {
 		agentName: COORDINATOR_NAME,

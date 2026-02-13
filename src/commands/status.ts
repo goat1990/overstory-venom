@@ -103,7 +103,7 @@ async function gatherStatus(
 	// indicates it should be alive, mark it as zombie
 	let sessionsUpdated = false;
 	for (const session of sessions) {
-		if (session.state === "booting" || session.state === "working") {
+		if (session.state === "booting" || session.state === "working" || session.state === "stalled") {
 			const tmuxAlive = tmuxSessions.some((s) => s.name === session.tmuxSession);
 			if (!tmuxAlive) {
 				session.state = "zombie";
@@ -225,7 +225,7 @@ export function printStatus(data: StatusData): void {
 	w(`${"═".repeat(60)}\n\n`);
 
 	// Active agents
-	const active = data.agents.filter((a) => a.state !== "zombie");
+	const active = data.agents.filter((a) => a.state !== "zombie" && a.state !== "completed");
 	w(`🤖 Agents: ${active.length} active\n`);
 	if (active.length > 0) {
 		for (const agent of active) {

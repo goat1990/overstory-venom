@@ -15,6 +15,36 @@ const NON_IMPLEMENTATION_CAPABILITIES = new Set([
 	"supervisor",
 ]);
 
+/**
+ * Capabilities that coordinate work and need git add/commit for syncing
+ * beads, mulch, and other metadata — but must NOT git push.
+ */
+const COORDINATION_CAPABILITIES = new Set(["coordinator", "supervisor"]);
+
+/**
+ * Additional safe Bash prefixes for coordination capabilities.
+ * Allows git add/commit for beads sync, mulch records, etc.
+ * git push remains blocked via DANGEROUS_BASH_PATTERNS.
+ */
+const COORDINATION_SAFE_PREFIXES = ["git add", "git commit"];
+
+/**
+ * Claude Code native team/task tools that bypass overstory orchestration.
+ * All overstory agents must use `overstory sling` for delegation, not these.
+ */
+const NATIVE_TEAM_TOOLS = [
+	"Task",
+	"TeamCreate",
+	"TeamDelete",
+	"SendMessage",
+	"TaskCreate",
+	"TaskUpdate",
+	"TaskList",
+	"TaskGet",
+	"TaskOutput",
+	"TaskStop",
+];
+
 /** Tools that non-implementation agents must not use. */
 const WRITE_TOOLS = ["Write", "Edit", "NotebookEdit"];
 
@@ -114,7 +144,7 @@ function blockGuard(toolName: string, reason: string): HookEntry {
 /**
  * Build a Bash guard script that inspects the command from stdin JSON.
  *
- * Claude Code PreToolUse hooks receive `{"tool_input": {"command": "..."}}` on stdin.
+ * Claude Code PreToolUse hooks receive `{"tool_name": "Bash", "tool_input": {"command": "..."}, ...}` on stdin.
  * This builds a bash script that reads stdin, extracts the command, and checks for
  * dangerous patterns (push to canonical branch, hard reset, wrong branch naming).
  */
@@ -124,8 +154,8 @@ function buildBashGuardScript(agentName: string): string {
 	// Uses parameter expansion to avoid requiring jq (zero runtime deps).
 	const script = [
 		"read -r INPUT;",
-		// Extract command value from JSON — grab everything after "command":"
-		'CMD=$(echo "$INPUT" | sed \'s/.*"command":"\\([^"]*\\)".*/\\1/\');',
+		// Extract command value from JSON — grab everything after "command": (with optional space)
+		'CMD=$(echo "$INPUT" | sed \'s/.*"command": *"\\([^"]*\\)".*/\\1/\');',
 		// Check 1: Block git push to canonical branches
 		`if echo "$CMD" | grep -qE 'git\\s+push\\s+\\S+\\s+(${canonicalPattern})'; then`,
 		`  echo '{"decision":"block","reason":"Agents must not push to canonical branch (${CANONICAL_BRANCHES.join("/")})"}';`,
@@ -179,20 +209,25 @@ export function getDangerGuards(agentName: string): HookEntry[] {
  * Otherwise, it checks against dangerous patterns and blocks if any match.
  *
  * @param capability - The agent capability, included in block reason messages
+ * @param extraSafePrefixes - Additional safe prefixes for this capability (e.g. git add/commit for coordinators)
  */
-export function buildBashFileGuardScript(capability: string): string {
+export function buildBashFileGuardScript(
+	capability: string,
+	extraSafePrefixes: string[] = [],
+): string {
 	// Build the safe prefix check: if command starts with any safe prefix, allow it
-	const safePrefixChecks = SAFE_BASH_PREFIXES.map(
-		(prefix) => `if echo "$CMD" | grep -qE '^\\s*${prefix}'; then exit 0; fi;`,
-	).join(" ");
+	const allSafePrefixes = [...SAFE_BASH_PREFIXES, ...extraSafePrefixes];
+	const safePrefixChecks = allSafePrefixes
+		.map((prefix) => `if echo "$CMD" | grep -qE '^\\s*${prefix}'; then exit 0; fi;`)
+		.join(" ");
 
 	// Build the dangerous pattern check
 	const dangerPattern = DANGEROUS_BASH_PATTERNS.join("|");
 
 	const script = [
 		"read -r INPUT;",
-		// Extract command value from JSON
-		'CMD=$(echo "$INPUT" | sed \'s/.*"command":"\\([^"]*\\)".*/\\1/\');',
+		// Extract command value from JSON (with optional space after colon)
+		'CMD=$(echo "$INPUT" | sed \'s/.*"command": *"\\([^"]*\\)".*/\\1/\');',
 		// First: whitelist safe commands
 		safePrefixChecks,
 		// Then: check for dangerous patterns
@@ -207,32 +242,54 @@ export function buildBashFileGuardScript(capability: string): string {
 /**
  * Generate capability-specific PreToolUse guards.
  *
- * Non-implementation capabilities (scout, reviewer, lead) get:
+ * Non-implementation capabilities (scout, reviewer, lead, coordinator, supervisor) get:
  * - Write, Edit, NotebookEdit tool blocks
  * - Bash file-modification command guards (sed -i, echo >, mv, rm, etc.)
+ * - Coordination capabilities (coordinator, supervisor) get git add/commit whitelisted
  *
- * Implementation capabilities (builder, merger) get no additional guards
+ * All overstory-managed agents get:
+ * - Claude Code native team/task tool blocks (Task, TeamCreate, SendMessage, etc.)
+ *   to ensure delegation goes through overstory sling
+ *
+ * Implementation capabilities (builder, merger) get only the native team tool blocks
  * beyond the universal danger guards from getDangerGuards().
  *
  * Note: All capabilities also receive Bash danger guards via getDangerGuards().
  */
 export function getCapabilityGuards(capability: string): HookEntry[] {
+	const guards: HookEntry[] = [];
+
+	// Block Claude Code native team/task tools for ALL overstory agents.
+	// Agents must use `overstory sling` for delegation, not native Task/Team tools.
+	const teamToolGuards = NATIVE_TEAM_TOOLS.map((tool) =>
+		blockGuard(
+			tool,
+			`Overstory agents must use 'overstory sling' for delegation — ${tool} is not allowed`,
+		),
+	);
+	guards.push(...teamToolGuards);
+
 	if (NON_IMPLEMENTATION_CAPABILITIES.has(capability)) {
 		const toolGuards = WRITE_TOOLS.map((tool) =>
 			blockGuard(tool, `${capability} agents cannot modify files — ${tool} is not allowed`),
 		);
+		guards.push(...toolGuards);
+
+		// Coordination capabilities get git add/commit whitelisted for beads/mulch sync
+		const extraSafe = COORDINATION_CAPABILITIES.has(capability) ? COORDINATION_SAFE_PREFIXES : [];
 		const bashFileGuard: HookEntry = {
 			matcher: "Bash",
 			hooks: [
 				{
 					type: "command",
-					command: buildBashFileGuardScript(capability),
+					command: buildBashFileGuardScript(capability, extraSafe),
 				},
 			],
 		};
-		return [...toolGuards, bashFileGuard];
+		guards.push(bashFileGuard);
 	}
-	return [];
+
+	return guards;
 }
 
 /**

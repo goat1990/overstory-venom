@@ -348,7 +348,7 @@ describe("deployHooks", () => {
 		expect(bashGuards.length).toBe(2);
 	});
 
-	test("builder capability gets only Bash danger guards", async () => {
+	test("builder capability gets Bash danger guards and native team tool blocks", async () => {
 		const worktreePath = join(tempDir, "builder-wt");
 
 		await deployHooks(worktreePath, "builder-agent", "builder");
@@ -358,15 +358,18 @@ describe("deployHooks", () => {
 		const parsed = JSON.parse(content);
 		const preToolUse = parsed.hooks.PreToolUse;
 
-		// Bash danger guard + base logging hook
 		const guardMatchers = preToolUse
 			.filter((h: { matcher: string }) => h.matcher !== "")
 			.map((h: { matcher: string }) => h.matcher);
 
-		expect(guardMatchers).toEqual(["Bash"]);
+		// Bash danger guard + 10 native team tool blocks
+		expect(guardMatchers).toContain("Bash");
+		expect(guardMatchers).toContain("Task");
+		expect(guardMatchers).toContain("TeamCreate");
+		expect(guardMatchers).not.toContain("Write");
 	});
 
-	test("merger capability gets only Bash danger guards", async () => {
+	test("merger capability gets Bash danger guards and native team tool blocks", async () => {
 		const worktreePath = join(tempDir, "merger-wt");
 
 		await deployHooks(worktreePath, "merger-agent", "merger");
@@ -380,10 +383,12 @@ describe("deployHooks", () => {
 			.filter((h: { matcher: string }) => h.matcher !== "")
 			.map((h: { matcher: string }) => h.matcher);
 
-		expect(guardMatchers).toEqual(["Bash"]);
+		expect(guardMatchers).toContain("Bash");
+		expect(guardMatchers).toContain("Task");
+		expect(guardMatchers).not.toContain("Write");
 	});
 
-	test("default capability (no arg) gets only Bash danger guards", async () => {
+	test("default capability (no arg) gets Bash danger guards and native team tool blocks", async () => {
 		const worktreePath = join(tempDir, "default-wt");
 
 		await deployHooks(worktreePath, "default-agent");
@@ -397,7 +402,9 @@ describe("deployHooks", () => {
 			.filter((h: { matcher: string }) => h.matcher !== "")
 			.map((h: { matcher: string }) => h.matcher);
 
-		expect(guardMatchers).toEqual(["Bash"]);
+		expect(guardMatchers).toContain("Bash");
+		expect(guardMatchers).toContain("Task");
+		expect(guardMatchers).not.toContain("Write");
 	});
 
 	test("guards are prepended before base logging hook", async () => {
@@ -419,34 +426,37 @@ describe("deployHooks", () => {
 });
 
 describe("getCapabilityGuards", () => {
-	test("returns 4 guards for scout (3 tool blocks + 1 bash file guard)", () => {
+	// 10 native team tool blocks apply to ALL capabilities
+	const NATIVE_TEAM_TOOL_COUNT = 10;
+
+	test("returns 14 guards for scout (10 team + 3 tool blocks + 1 bash file guard)", () => {
 		const guards = getCapabilityGuards("scout");
-		expect(guards.length).toBe(4);
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT + 4);
 	});
 
-	test("returns 4 guards for reviewer (3 tool blocks + 1 bash file guard)", () => {
+	test("returns 14 guards for reviewer (10 team + 3 tool blocks + 1 bash file guard)", () => {
 		const guards = getCapabilityGuards("reviewer");
-		expect(guards.length).toBe(4);
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT + 4);
 	});
 
-	test("returns 4 guards for lead (3 tool blocks + 1 bash file guard)", () => {
+	test("returns 14 guards for lead (10 team + 3 tool blocks + 1 bash file guard)", () => {
 		const guards = getCapabilityGuards("lead");
-		expect(guards.length).toBe(4);
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT + 4);
 	});
 
-	test("returns empty for builder", () => {
+	test("returns 10 guards for builder (10 team tool blocks only)", () => {
 		const guards = getCapabilityGuards("builder");
-		expect(guards.length).toBe(0);
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT);
 	});
 
-	test("returns empty for merger", () => {
+	test("returns 10 guards for merger (10 team tool blocks only)", () => {
 		const guards = getCapabilityGuards("merger");
-		expect(guards.length).toBe(0);
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT);
 	});
 
-	test("returns empty for unknown capability", () => {
+	test("returns 10 guards for unknown capability (10 team tool blocks only)", () => {
 		const guards = getCapabilityGuards("unknown");
-		expect(guards.length).toBe(0);
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT);
 	});
 
 	test("scout guards include Write, Edit, NotebookEdit, and Bash matchers", () => {
@@ -495,6 +505,50 @@ describe("getCapabilityGuards", () => {
 		const bashGuard = guards.find((g) => g.matcher === "Bash");
 		expect(bashGuard).toBeDefined();
 		expect(bashGuard?.hooks[0]?.command).toContain("lead agents cannot modify files");
+	});
+
+	test("all capabilities get Task tool blocked", () => {
+		for (const cap of [
+			"scout",
+			"reviewer",
+			"lead",
+			"coordinator",
+			"supervisor",
+			"builder",
+			"merger",
+		]) {
+			const guards = getCapabilityGuards(cap);
+			const taskGuard = guards.find((g) => g.matcher === "Task");
+			expect(taskGuard).toBeDefined();
+			expect(taskGuard?.hooks[0]?.command).toContain("overstory sling");
+		}
+	});
+
+	test("all capabilities get TeamCreate and SendMessage blocked", () => {
+		for (const cap of [
+			"scout",
+			"reviewer",
+			"lead",
+			"coordinator",
+			"supervisor",
+			"builder",
+			"merger",
+		]) {
+			const guards = getCapabilityGuards(cap);
+			const matchers = guards.map((g) => g.matcher);
+			expect(matchers).toContain("TeamCreate");
+			expect(matchers).toContain("SendMessage");
+		}
+	});
+
+	test("coordinator gets 14 guards (10 team + 3 tool blocks + 1 bash file guard)", () => {
+		const guards = getCapabilityGuards("coordinator");
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT + 4);
+	});
+
+	test("supervisor gets 14 guards (10 team + 3 tool blocks + 1 bash file guard)", () => {
+		const guards = getCapabilityGuards("supervisor");
+		expect(guards.length).toBe(NATIVE_TEAM_TOOL_COUNT + 4);
 	});
 });
 
@@ -673,6 +727,21 @@ describe("buildBashFileGuardScript", () => {
 		expect(script).toContain(">>");
 	});
 
+	test("accepts extra safe prefixes for coordinator", () => {
+		const script = buildBashFileGuardScript("coordinator", ["git add", "git commit"]);
+		expect(script).toContain("git add");
+		expect(script).toContain("git commit");
+	});
+
+	test("default script does not whitelist git add/commit", () => {
+		const script = buildBashFileGuardScript("scout");
+		// git add/commit should NOT be in the safe prefix checks (only in danger patterns)
+		// The safe prefixes use exit 0, danger patterns use decision:block
+		const safeSection = script.split("grep -qE '")[0] ?? "";
+		expect(safeSection).not.toContain("'^\\s*git add'");
+		expect(safeSection).not.toContain("'^\\s*git commit'");
+	});
+
 	test("safe prefix checks use exit 0 to allow", () => {
 		const script = buildBashFileGuardScript("scout");
 		// Each safe prefix should have an exit 0 to allow the command
@@ -787,7 +856,15 @@ describe("structural enforcement integration", () => {
 	});
 
 	test("all deployed configs produce valid JSON", async () => {
-		const capabilities = ["scout", "reviewer", "lead", "builder", "merger"];
+		const capabilities = [
+			"scout",
+			"reviewer",
+			"lead",
+			"builder",
+			"merger",
+			"coordinator",
+			"supervisor",
+		];
 
 		for (const cap of capabilities) {
 			const wt = join(tempDir, `${cap}-wt`);
@@ -795,6 +872,93 @@ describe("structural enforcement integration", () => {
 
 			const content = await Bun.file(join(wt, ".claude", "settings.local.json")).text();
 			expect(() => JSON.parse(content)).not.toThrow();
+		}
+	});
+
+	test("coordinator bash guard whitelists git add and git commit", async () => {
+		const worktreePath = join(tempDir, "coord-wt");
+
+		await deployHooks(worktreePath, "coordinator-agent", "coordinator");
+
+		const outputPath = join(worktreePath, ".claude", "settings.local.json");
+		const content = await Bun.file(outputPath).text();
+		const parsed = JSON.parse(content);
+		const preToolUse = parsed.hooks.PreToolUse;
+
+		// Find the bash file guard (the second Bash entry, after the danger guard)
+		const bashGuards = preToolUse.filter((h: { matcher: string }) => h.matcher === "Bash");
+		expect(bashGuards.length).toBe(2);
+
+		// The file guard (second Bash guard) should whitelist git add/commit
+		const fileGuard = bashGuards[1];
+		expect(fileGuard.hooks[0].command).toContain("git add");
+		expect(fileGuard.hooks[0].command).toContain("git commit");
+	});
+
+	test("scout bash guard does NOT whitelist git add/commit", async () => {
+		const worktreePath = join(tempDir, "scout-git-wt");
+
+		await deployHooks(worktreePath, "scout-git", "scout");
+
+		const outputPath = join(worktreePath, ".claude", "settings.local.json");
+		const content = await Bun.file(outputPath).text();
+		const parsed = JSON.parse(content);
+		const preToolUse = parsed.hooks.PreToolUse;
+
+		const bashGuards = preToolUse.filter((h: { matcher: string }) => h.matcher === "Bash");
+		const fileGuard = bashGuards[1];
+
+		// The safe prefix section should not include git add or git commit for scouts
+		const command = fileGuard.hooks[0].command;
+		const safePrefixSection = command.split("grep -qE '")[0] ?? "";
+		expect(safePrefixSection).not.toContain("'^\\s*git add'");
+		expect(safePrefixSection).not.toContain("'^\\s*git commit'");
+	});
+
+	test("coordinator and supervisor have same guard structure", async () => {
+		const coordPath = join(tempDir, "coord-wt");
+		const supPath = join(tempDir, "sup-wt");
+
+		await deployHooks(coordPath, "coord-1", "coordinator");
+		await deployHooks(supPath, "sup-1", "supervisor");
+
+		const coordContent = await Bun.file(join(coordPath, ".claude", "settings.local.json")).text();
+		const supContent = await Bun.file(join(supPath, ".claude", "settings.local.json")).text();
+
+		const coordPreToolUse = JSON.parse(coordContent).hooks.PreToolUse;
+		const supPreToolUse = JSON.parse(supContent).hooks.PreToolUse;
+
+		// Same number of guards
+		expect(coordPreToolUse.length).toBe(supPreToolUse.length);
+
+		// Same matchers
+		const coordMatchers = coordPreToolUse.map((h: { matcher: string }) => h.matcher);
+		const supMatchers = supPreToolUse.map((h: { matcher: string }) => h.matcher);
+		expect(coordMatchers).toEqual(supMatchers);
+	});
+
+	test("all capabilities block Task tool for overstory sling enforcement", async () => {
+		const capabilities = [
+			"scout",
+			"reviewer",
+			"lead",
+			"builder",
+			"merger",
+			"coordinator",
+			"supervisor",
+		];
+
+		for (const cap of capabilities) {
+			const wt = join(tempDir, `${cap}-task-wt`);
+			await deployHooks(wt, `${cap}-agent`, cap);
+
+			const content = await Bun.file(join(wt, ".claude", "settings.local.json")).text();
+			const parsed = JSON.parse(content);
+			const preToolUse = parsed.hooks.PreToolUse;
+
+			const taskGuard = preToolUse.find((h: { matcher: string }) => h.matcher === "Task");
+			expect(taskGuard).toBeDefined();
+			expect(taskGuard.hooks[0].command).toContain("overstory sling");
 		}
 	});
 });
