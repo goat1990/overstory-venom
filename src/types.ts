@@ -457,6 +457,46 @@ export interface RunStore {
 	close(): void;
 }
 
+// === Mulch CLI Results ===
+
+/** Mulch status result (domain statistics). */
+export interface MulchStatus {
+	domains: Array<{ name: string; recordCount: number; lastUpdated: string }>;
+}
+
+/** Result from mulch diff command. */
+export interface MulchDiffResult {
+	domain1: string;
+	domain2: string;
+	differences: string[];
+}
+
+/** Result from mulch prune command. */
+export interface MulchPruneResult {
+	domain: string;
+	removedCount: number;
+	removedRecords: string[];
+}
+
+/** Health check result from mulch doctor. */
+export interface MulchDoctorResult {
+	healthy: boolean;
+	issues: Array<{
+		severity: "error" | "warning" | "info";
+		message: string;
+		domain?: string;
+	}>;
+}
+
+/** Ready domains result from mulch ready. */
+export interface MulchReadyResult {
+	ready: string[];
+	notReady: Array<{
+		domain: string;
+		reason: string;
+	}>;
+}
+
 // === Session Lifecycle (Checkpoint / Handoff / Continuity) ===
 
 /**
