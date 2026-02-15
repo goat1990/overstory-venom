@@ -14,6 +14,7 @@ import { errorsCommand } from "./commands/errors.ts";
 import { groupCommand } from "./commands/group.ts";
 import { hooksCommand } from "./commands/hooks.ts";
 import { initCommand } from "./commands/init.ts";
+import { inspectCommand } from "./commands/inspect.ts";
 import { logCommand } from "./commands/log.ts";
 import { mailCommand } from "./commands/mail.ts";
 import { mergeCommand } from "./commands/merge.ts";
@@ -45,6 +46,7 @@ Commands:
   prime                   Load context for orchestrator/agent
   status                  Show all active agents and project state
   dashboard               Live TUI dashboard for agent monitoring
+  inspect <agent>         Deep inspection of a single agent
   coordinator <sub>       Persistent coordinator agent (start/stop/status)
   supervisor <sub>        Per-project supervisor agent (start/stop/status)
   hooks <sub>             Manage orchestrator hooks (install/uninstall/status)
@@ -77,6 +79,7 @@ const COMMANDS = [
 	"prime",
 	"status",
 	"dashboard",
+	"inspect",
 	"clean",
 	"coordinator",
 	"supervisor",
@@ -163,6 +166,9 @@ async function main(): Promise<void> {
 			break;
 		case "dashboard":
 			await dashboardCommand(commandArgs);
+			break;
+		case "inspect":
+			await inspectCommand(commandArgs);
 			break;
 		case "clean":
 			await cleanCommand(commandArgs);
