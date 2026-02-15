@@ -23,6 +23,7 @@
 import { join } from "node:path";
 import { nudgeAgent } from "../commands/nudge.ts";
 import { createEventStore } from "../events/store.ts";
+import { createMulchClient } from "../mulch/client.ts";
 import { openSessionStore } from "../sessions/compat.ts";
 import type { AgentSession, EventStore, HealthCheck } from "../types.ts";
 import { isSessionAlive, killSession } from "../worktree/tmux.ts";
@@ -31,6 +32,47 @@ import { triageAgent } from "./triage.ts";
 
 /** Maximum escalation level (terminate). */
 const MAX_ESCALATION_LEVEL = 3;
+
+/**
+ * Record an agent failure to mulch for future reference.
+ * Fire-and-forget: never throws, logs errors internally if mulch fails.
+ *
+ * @param root - Project root directory
+ * @param session - The agent session that failed
+ * @param reason - Human-readable failure reason
+ * @param tier - Which watchdog tier detected the failure (0 or 1)
+ * @param triageSuggestion - Optional triage verdict from Tier 1 AI analysis
+ */
+async function recordFailure(
+	root: string,
+	session: AgentSession,
+	reason: string,
+	tier: 0 | 1,
+	triageSuggestion?: string,
+): Promise<void> {
+	try {
+		const mulch = createMulchClient(root);
+		const tierLabel = tier === 0 ? "Tier 0 (process death)" : "Tier 1 (AI triage)";
+		const description = [
+			`Agent: ${session.agentName}`,
+			`Capability: ${session.capability}`,
+			`Failure reason: ${reason}`,
+			triageSuggestion ? `Triage suggestion: ${triageSuggestion}` : null,
+			`Detected by: ${tierLabel}`,
+		]
+			.filter((line) => line !== null)
+			.join("\n");
+
+		await mulch.record("agents", {
+			type: "failure",
+			description,
+			tags: ["watchdog", "auto-recorded"],
+			evidenceBead: session.beadId || undefined,
+		});
+	} catch {
+		// Fire-and-forget: recording failures must not break the watchdog
+	}
+}
 
 /**
  * Read the current run ID from current-run.txt, or null if no active run.
@@ -110,6 +152,14 @@ export interface DaemonOptions {
 	) => Promise<{ delivered: boolean; reason?: string }>;
 	/** Dependency injection for testing. Overrides EventStore creation. */
 	_eventStore?: EventStore | null;
+	/** Dependency injection for testing. Uses real recordFailure when omitted. */
+	_recordFailure?: (
+		root: string,
+		session: AgentSession,
+		reason: string,
+		tier: 0 | 1,
+		triageSuggestion?: string,
+	) => Promise<void>;
 }
 
 /**
@@ -172,6 +222,7 @@ export async function runDaemonTick(options: DaemonOptions): Promise<void> {
 	const tmux = options._tmux ?? { isSessionAlive, killSession };
 	const triage = options._triage ?? triageAgent;
 	const nudge = options._nudge ?? nudgeAgent;
+	const recordFailureFn = options._recordFailure ?? recordFailure;
 
 	const overstoryDir = join(root, ".overstory");
 	const { store } = openSessionStore(overstoryDir);
@@ -228,6 +279,10 @@ export async function runDaemonTick(options: DaemonOptions): Promise<void> {
 			}
 
 			if (check.action === "terminate") {
+				// Record the failure via mulch (Tier 0 detection)
+				const reason = check.reconciliationNote ?? "Process terminated";
+				await recordFailureFn(root, session, reason, 0);
+
 				// Kill the tmux session if it's still alive
 				if (tmuxAlive) {
 					try {
@@ -281,6 +336,7 @@ export async function runDaemonTick(options: DaemonOptions): Promise<void> {
 					nudge,
 					eventStore,
 					runId,
+					recordFailure: recordFailureFn,
 				});
 
 				if (actionResult.terminated) {
@@ -342,8 +398,26 @@ async function executeEscalationAction(ctx: {
 	) => Promise<{ delivered: boolean; reason?: string }>;
 	eventStore: EventStore | null;
 	runId: string | null;
+	recordFailure: (
+		root: string,
+		session: AgentSession,
+		reason: string,
+		tier: 0 | 1,
+		triageSuggestion?: string,
+	) => Promise<void>;
 }): Promise<{ terminated: boolean; stateChanged: boolean }> {
-	const { session, root, tmuxAlive, tier1Enabled, tmux, triage, nudge, eventStore, runId } = ctx;
+	const {
+		session,
+		root,
+		tmuxAlive,
+		tier1Enabled,
+		tmux,
+		triage,
+		nudge,
+		eventStore,
+		runId,
+		recordFailure,
+	} = ctx;
 
 	switch (session.escalationLevel) {
 		case 0: {
@@ -404,6 +478,9 @@ async function executeEscalationAction(ctx: {
 			});
 
 			if (verdict === "terminate") {
+				// Record the failure via mulch (Tier 1 AI triage)
+				await recordFailure(root, session, "AI triage classified as terminal failure", 1, verdict);
+
 				if (tmuxAlive) {
 					try {
 						await tmux.killSession(session.tmuxSession);
@@ -442,6 +519,10 @@ async function executeEscalationAction(ctx: {
 				level: "error",
 				data: { type: "escalation", escalationLevel: 3, action: "terminate" },
 			});
+
+			// Record the failure via mulch (Tier 0: progressive escalation to terminal level)
+			await recordFailure(root, session, "Progressive escalation reached terminal level", 0);
+
 			if (tmuxAlive) {
 				try {
 					await tmux.killSession(session.tmuxSession);

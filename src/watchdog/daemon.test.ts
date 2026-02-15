@@ -1087,3 +1087,247 @@ describe("daemon event recording", () => {
 		expect(checks[0]?.action).toBe("escalate");
 	});
 });
+
+// === Mulch failure recording tests ===
+
+describe("daemon mulch failure recording", () => {
+	let tempRoot: string;
+
+	beforeEach(async () => {
+		tempRoot = await createTempRoot();
+	});
+
+	afterEach(async () => {
+		await rm(tempRoot, { recursive: true, force: true });
+	});
+
+	/** Track calls to the recordFailure mock. */
+	interface FailureRecord {
+		root: string;
+		session: AgentSession;
+		reason: string;
+		tier: 0 | 1;
+		triageSuggestion?: string;
+	}
+
+	function failureTracker(): {
+		calls: FailureRecord[];
+		recordFailure: (
+			root: string,
+			session: AgentSession,
+			reason: string,
+			tier: 0 | 1,
+			triageSuggestion?: string,
+		) => Promise<void>;
+	} {
+		const calls: FailureRecord[] = [];
+		return {
+			calls,
+			async recordFailure(root, session, reason, tier, triageSuggestion) {
+				calls.push({ root, session, reason, tier, triageSuggestion });
+			},
+		};
+	}
+
+	test("Tier 0: recordFailure called when action=terminate (process death)", async () => {
+		const session = makeSession({
+			agentName: "dying-agent",
+			capability: "builder",
+			beadId: "task-123",
+			tmuxSession: "overstory-dying-agent",
+			state: "working",
+			lastActivity: new Date().toISOString(),
+		});
+
+		writeSessionsToStore(tempRoot, [session]);
+
+		const tmuxMock = tmuxWithLiveness({ "overstory-dying-agent": false });
+		const failureMock = failureTracker();
+
+		await runDaemonTick({
+			root: tempRoot,
+			...THRESHOLDS,
+			_tmux: tmuxMock,
+			_triage: triageAlways("extend"),
+			_nudge: nudgeTracker().nudge,
+			_recordFailure: failureMock.recordFailure,
+		});
+
+		// recordFailure should be called with Tier 0
+		expect(failureMock.calls).toHaveLength(1);
+		expect(failureMock.calls[0]?.tier).toBe(0);
+		expect(failureMock.calls[0]?.session.agentName).toBe("dying-agent");
+		expect(failureMock.calls[0]?.session.capability).toBe("builder");
+		expect(failureMock.calls[0]?.session.beadId).toBe("task-123");
+		// Reason should be either the reconciliationNote or default "Process terminated"
+		expect(failureMock.calls[0]?.reason).toBeDefined();
+	});
+
+	test("Tier 1: recordFailure called when triage returns terminate", async () => {
+		const staleActivity = new Date(Date.now() - 60_000).toISOString();
+		const stalledSince = new Date(Date.now() - 130_000).toISOString();
+		const session = makeSession({
+			agentName: "triaged-agent",
+			capability: "scout",
+			beadId: "task-456",
+			tmuxSession: "overstory-triaged-agent",
+			state: "stalled",
+			lastActivity: staleActivity,
+			escalationLevel: 1,
+			stalledSince,
+		});
+
+		writeSessionsToStore(tempRoot, [session]);
+
+		const tmuxMock = tmuxWithLiveness({ "overstory-triaged-agent": true });
+		const failureMock = failureTracker();
+
+		await runDaemonTick({
+			root: tempRoot,
+			...THRESHOLDS,
+			nudgeIntervalMs: 60_000,
+			tier1Enabled: true,
+			_tmux: tmuxMock,
+			_triage: triageAlways("terminate"),
+			_nudge: nudgeTracker().nudge,
+			_recordFailure: failureMock.recordFailure,
+		});
+
+		// recordFailure should be called with Tier 1 and triage verdict
+		expect(failureMock.calls).toHaveLength(1);
+		expect(failureMock.calls[0]?.tier).toBe(1);
+		expect(failureMock.calls[0]?.session.agentName).toBe("triaged-agent");
+		expect(failureMock.calls[0]?.session.capability).toBe("scout");
+		expect(failureMock.calls[0]?.session.beadId).toBe("task-456");
+		expect(failureMock.calls[0]?.triageSuggestion).toBe("terminate");
+		expect(failureMock.calls[0]?.reason).toContain("AI triage");
+	});
+
+	test("recordFailure not called when triage returns retry", async () => {
+		const staleActivity = new Date(Date.now() - 60_000).toISOString();
+		const stalledSince = new Date(Date.now() - 130_000).toISOString();
+		const session = makeSession({
+			agentName: "retry-agent",
+			tmuxSession: "overstory-retry-agent",
+			state: "stalled",
+			lastActivity: staleActivity,
+			escalationLevel: 1,
+			stalledSince,
+		});
+
+		writeSessionsToStore(tempRoot, [session]);
+
+		const tmuxMock = tmuxWithLiveness({ "overstory-retry-agent": true });
+		const failureMock = failureTracker();
+
+		await runDaemonTick({
+			root: tempRoot,
+			...THRESHOLDS,
+			nudgeIntervalMs: 60_000,
+			tier1Enabled: true,
+			_tmux: tmuxMock,
+			_triage: triageAlways("retry"),
+			_nudge: nudgeTracker().nudge,
+			_recordFailure: failureMock.recordFailure,
+		});
+
+		// recordFailure should NOT be called for retry verdict
+		expect(failureMock.calls).toHaveLength(0);
+	});
+
+	test("recordFailure not called when triage returns extend", async () => {
+		const staleActivity = new Date(Date.now() - 60_000).toISOString();
+		const stalledSince = new Date(Date.now() - 130_000).toISOString();
+		const session = makeSession({
+			agentName: "extend-agent",
+			tmuxSession: "overstory-extend-agent",
+			state: "stalled",
+			lastActivity: staleActivity,
+			escalationLevel: 1,
+			stalledSince,
+		});
+
+		writeSessionsToStore(tempRoot, [session]);
+
+		const tmuxMock = tmuxWithLiveness({ "overstory-extend-agent": true });
+		const failureMock = failureTracker();
+
+		await runDaemonTick({
+			root: tempRoot,
+			...THRESHOLDS,
+			nudgeIntervalMs: 60_000,
+			tier1Enabled: true,
+			_tmux: tmuxMock,
+			_triage: triageAlways("extend"),
+			_nudge: nudgeTracker().nudge,
+			_recordFailure: failureMock.recordFailure,
+		});
+
+		// recordFailure should NOT be called for extend verdict
+		expect(failureMock.calls).toHaveLength(0);
+	});
+
+	test("recordFailure includes evidenceBead when beadId is present", async () => {
+		const session = makeSession({
+			agentName: "beaded-agent",
+			capability: "builder",
+			beadId: "task-789",
+			tmuxSession: "overstory-beaded-agent",
+			state: "working",
+			lastActivity: new Date().toISOString(),
+		});
+
+		writeSessionsToStore(tempRoot, [session]);
+
+		const tmuxMock = tmuxWithLiveness({ "overstory-beaded-agent": false });
+		const failureMock = failureTracker();
+
+		await runDaemonTick({
+			root: tempRoot,
+			...THRESHOLDS,
+			_tmux: tmuxMock,
+			_triage: triageAlways("extend"),
+			_nudge: nudgeTracker().nudge,
+			_recordFailure: failureMock.recordFailure,
+		});
+
+		expect(failureMock.calls).toHaveLength(1);
+		expect(failureMock.calls[0]?.session.beadId).toBe("task-789");
+	});
+
+	test("Tier 0: recordFailure called at escalation level 3+ (progressive termination)", async () => {
+		const staleActivity = new Date(Date.now() - 60_000).toISOString();
+		const stalledSince = new Date(Date.now() - 200_000).toISOString();
+		const session = makeSession({
+			agentName: "doomed-agent",
+			capability: "builder",
+			beadId: "task-999",
+			tmuxSession: "overstory-doomed-agent",
+			state: "stalled",
+			lastActivity: staleActivity,
+			escalationLevel: 2,
+			stalledSince,
+		});
+
+		writeSessionsToStore(tempRoot, [session]);
+
+		const tmuxMock = tmuxWithLiveness({ "overstory-doomed-agent": true });
+		const failureMock = failureTracker();
+
+		await runDaemonTick({
+			root: tempRoot,
+			...THRESHOLDS,
+			nudgeIntervalMs: 60_000,
+			_tmux: tmuxMock,
+			_triage: triageAlways("extend"),
+			_nudge: nudgeTracker().nudge,
+			_recordFailure: failureMock.recordFailure,
+		});
+
+		// recordFailure should be called with Tier 0 for progressive escalation
+		expect(failureMock.calls).toHaveLength(1);
+		expect(failureMock.calls[0]?.tier).toBe(0);
+		expect(failureMock.calls[0]?.session.agentName).toBe("doomed-agent");
+		expect(failureMock.calls[0]?.reason).toContain("Progressive escalation");
+	});
+});
