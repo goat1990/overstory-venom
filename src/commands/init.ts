@@ -425,49 +425,28 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 /**
  * Content for .overstory/.gitignore — runtime state that should not be tracked.
- * Paths are relative to .overstory/ directory.
+ * Uses wildcard+whitelist pattern: ignore everything, whitelist tracked files.
+ * Auto-healed by overstory prime on each session start.
  * Config files (config.yaml, agent-manifest.json, hooks.json) remain tracked.
  */
-const OVERSTORY_GITIGNORE = `# Runtime state (auto-generated, do not edit)
-worktrees/
-logs/
-mail.db
-mail.db-wal
-mail.db-shm
-metrics.db
-metrics.db-wal
-metrics.db-shm
-events.db
-events.db-wal
-events.db-shm
-sessions.json
-sessions.db
-sessions.db-wal
-sessions.db-shm
-merge-queue.db
-merge-queue.db-wal
-merge-queue.db-shm
-nudge-state.json
-session-branch.txt
-pending-nudges/
-agents/
-specs/
+export const OVERSTORY_GITIGNORE = `# Wildcard+whitelist: ignore everything, whitelist tracked files
+# Auto-healed by overstory prime on each session start
+*
+!.gitignore
+!config.yaml
+!agent-manifest.json
+!hooks.json
+!groups.json
+!agent-defs/
 `;
 
 /**
- * Create .overstory/.gitignore for runtime state files.
- * Follows the same pattern as .beads/.gitignore.
+ * Write .overstory/.gitignore for runtime state files.
+ * Always overwrites to support --force reinit and auto-healing via prime.
  */
-async function writeOverstoryGitignore(overstoryPath: string): Promise<boolean> {
+export async function writeOverstoryGitignore(overstoryPath: string): Promise<void> {
 	const gitignorePath = join(overstoryPath, ".gitignore");
-	const file = Bun.file(gitignorePath);
-
-	if (await file.exists()) {
-		return false;
-	}
-
 	await Bun.write(gitignorePath, OVERSTORY_GITIGNORE);
-	return true;
 }
 
 /**
@@ -475,13 +454,6 @@ async function writeOverstoryGitignore(overstoryPath: string): Promise<boolean> 
  */
 function printCreated(relativePath: string): void {
 	process.stdout.write(`  \u2713 Created ${relativePath}\n`);
-}
-
-/**
- * Print a skip status line.
- */
-function printSkipped(relativePath: string, reason: string): void {
-	process.stdout.write(`  - Skipped ${relativePath} (${reason})\n`);
 }
 
 /**
@@ -592,12 +564,8 @@ export async function initCommand(args: string[]): Promise<void> {
 	printCreated(`${OVERSTORY_DIR}/hooks.json`);
 
 	// 7. Write .overstory/.gitignore for runtime state
-	const gitignoreCreated = await writeOverstoryGitignore(overstoryPath);
-	if (gitignoreCreated) {
-		printCreated(`${OVERSTORY_DIR}/.gitignore`);
-	} else {
-		printSkipped(`${OVERSTORY_DIR}/.gitignore`, "already exists");
-	}
+	await writeOverstoryGitignore(overstoryPath);
+	printCreated(`${OVERSTORY_DIR}/.gitignore`);
 
 	// 8. Migrate existing SQLite databases on --force reinit
 	if (force) {
