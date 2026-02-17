@@ -29,9 +29,9 @@
 		"memberIssueIds": [
 			"overstory-iycz"
 		],
-		"status": "active",
+		"status": "completed",
 		"createdAt": "2026-02-14T03:56:38.536Z",
-		"completedAt": null
+		"completedAt": "2026-02-17T01:24:44.805Z"
 	},
 	{
 		"id": "group-176f478e",
@@ -108,5 +108,57 @@
 		"status": "completed",
 		"createdAt": "2026-02-16T21:01:52.405Z",
 		"completedAt": "2026-02-16T21:59:24.313Z"
+	},
+	{
+		"id": "group-d989193a",
+		"name": "mulch-insight-loop",
+		"memberIssueIds": [
+			"overstory-vdg7",
+			"overstory-b1ac",
+			"overstory-7kn2",
+			"overstory-7jr8"
+		],
+		"status": "completed",
+		"createdAt": "2026-02-17T01:26:14.086Z",
+		"completedAt": "2026-02-17T01:39:43.396Z"
+	},
+	{
+		"id": "group-c3d6f2b0",
+		"name": "batch-2-intelligence",
+		"memberIssueIds": [
+			"overstory-e7hf",
+			"overstory-e1q2",
+			"overstory-i1v4",
+			"overstory-9kuz",
+			"overstory-6ib5",
+			"overstory-uh2h",
+			"overstory-mifc"
+		],
+		"status": "completed",
+		"createdAt": "2026-02-17T01:50:13.735Z",
+		"completedAt": "2026-02-17T02:28:22.023Z"
+	},
+	{
+		"id": "group-789abdfe",
+		"name": "gitignore-fix",
+		"memberIssueIds": [
+			"overstory-8jo7"
+		],
+		"status": "completed",
+		"createdAt": "2026-02-17T15:15:31.532Z",
+		"completedAt": "2026-02-17T15:29:26.526Z"
+	},
+	{
+		"id": "group-96dcccc8",
+		"name": "p1p2-workflow-fixes",
+		"memberIssueIds": [
+			"overstory-9sct",
+			"overstory-sgy6",
+			"overstory-8pcf",
+			"overstory-tgcl"
+		],
+		"status": "completed",
+		"createdAt": "2026-02-17T15:35:39.805Z",
+		"completedAt": "2026-02-17T16:14:56.698Z"
 	}
 ]
