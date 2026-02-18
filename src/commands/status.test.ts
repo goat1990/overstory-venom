@@ -224,6 +224,64 @@ describe("--verbose --json", () => {
 	});
 });
 
+describe("run scoping", () => {
+	let chunks: string[];
+	let originalWrite: typeof process.stdout.write;
+
+	beforeEach(() => {
+		chunks = [];
+		originalWrite = process.stdout.write;
+		process.stdout.write = ((chunk: string) => {
+			chunks.push(chunk);
+			return true;
+		}) as typeof process.stdout.write;
+	});
+
+	afterEach(() => {
+		process.stdout.write = originalWrite;
+	});
+
+	function output(): string {
+		return chunks.join("");
+	}
+
+	test("printStatus shows run ID when currentRunId is set", () => {
+		const data = makeStatusData({ currentRunId: "run-123" });
+		printStatus(data);
+		expect(output()).toContain("Run: run-123");
+	});
+
+	test("printStatus does not show run line when currentRunId is undefined", () => {
+		const data = makeStatusData();
+		printStatus(data);
+		expect(output()).not.toContain("Run:");
+	});
+
+	test("printStatus does not show run line when currentRunId is null", () => {
+		const data = makeStatusData({ currentRunId: null });
+		printStatus(data);
+		expect(output()).not.toContain("Run:");
+	});
+
+	test("help text includes --all", async () => {
+		const helpChunks: string[] = [];
+		const origWrite = process.stdout.write;
+		process.stdout.write = ((chunk: string) => {
+			helpChunks.push(chunk);
+			return true;
+		}) as typeof process.stdout.write;
+
+		try {
+			await statusCommand(["--help"]);
+		} finally {
+			process.stdout.write = origWrite;
+		}
+
+		const out = helpChunks.join("");
+		expect(out).toContain("--all");
+	});
+});
+
 describe("--watch deprecation", () => {
 	test("help text marks --watch as deprecated", async () => {
 		const chunks: string[] = [];
