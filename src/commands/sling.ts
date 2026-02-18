@@ -22,7 +22,7 @@ import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { deployHooks } from "../agents/hooks-deployer.ts";
 import { createIdentity, loadIdentity } from "../agents/identity.ts";
-import { createManifestLoader } from "../agents/manifest.ts";
+import { createManifestLoader, resolveModel } from "../agents/manifest.ts";
 import { writeOverlay } from "../agents/overlay.ts";
 import type { BeadIssue } from "../beads/client.ts";
 import { createBeadsClient } from "../beads/client.ts";
@@ -446,7 +446,8 @@ export async function slingCommand(args: string[]): Promise<void> {
 
 		// 12. Create tmux session running claude in interactive mode
 		const tmuxSessionName = `overstory-${config.project.name}-${name}`;
-		const claudeCmd = `claude --model ${agentDef.model} --dangerously-skip-permissions`;
+		const model = resolveModel(config, manifest, capability, agentDef.model);
+		const claudeCmd = `claude --model ${model} --dangerously-skip-permissions`;
 		const pid = await createSession(tmuxSessionName, worktreePath, claudeCmd, {
 			OVERSTORY_AGENT_NAME: name,
 			OVERSTORY_WORKTREE_PATH: worktreePath,
