@@ -54,6 +54,7 @@ export interface VerboseAgentDetail {
 }
 
 export interface StatusData {
+	currentRunId?: string | null;
 	agents: AgentSession[];
 	worktrees: Array<{ path: string; branch: string; head: string }>;
 	tmuxSessions: Array<{ name: string; pid: number }>;
@@ -63,22 +64,35 @@ export interface StatusData {
 	verboseDetails?: Record<string, VerboseAgentDetail>;
 }
 
+async function readCurrentRunId(overstoryDir: string): Promise<string | null> {
+	const path = join(overstoryDir, "current-run.txt");
+	const file = Bun.file(path);
+	if (!(await file.exists())) {
+		return null;
+	}
+	const text = await file.text();
+	const trimmed = text.trim();
+	return trimmed.length > 0 ? trimmed : null;
+}
+
 /**
  * Gather all status data.
  * @param agentName - Which agent's perspective for unread mail count (default "orchestrator")
  * @param verbose - When true, collect extra per-agent detail (worktree path, logs dir, last mail)
+ * @param runId - When provided, only sessions for that run are returned; null/undefined shows all
  */
 export async function gatherStatus(
 	root: string,
 	agentName = "orchestrator",
 	verbose = false,
+	runId?: string | null,
 ): Promise<StatusData> {
 	const overstoryDir = join(root, ".overstory");
 	const { store } = openSessionStore(overstoryDir);
 
 	let sessions: AgentSession[];
 	try {
-		sessions = store.getAll();
+		sessions = runId ? store.getByRun(runId) : store.getAll();
 
 		const worktrees = await listWorktrees(root);
 
@@ -184,6 +198,7 @@ export async function gatherStatus(
 		}
 
 		return {
+			currentRunId: runId,
 			agents: sessions,
 			worktrees,
 			tmuxSessions,
@@ -206,6 +221,9 @@ export function printStatus(data: StatusData): void {
 
 	w("📊 Overstory Status\n");
 	w(`${"═".repeat(60)}\n\n`);
+	if (data.currentRunId) {
+		w(`🏃 Run: ${data.currentRunId}\n`);
+	}
 
 	// Active agents
 	const active = data.agents.filter((a) => a.state !== "zombie" && a.state !== "completed");
@@ -261,12 +279,13 @@ export function printStatus(data: StatusData): void {
  */
 const STATUS_HELP = `overstory status — Show all active agents and project state
 
-Usage: overstory status [--json] [--verbose] [--agent <name>]
+Usage: overstory status [--json] [--verbose] [--agent <name>] [--all]
 
 Options:
   --json             Output as JSON
   --verbose          Show extra detail per agent (worktree, logs, mail timestamps)
   --agent <name>     Show unread mail for this agent (default: orchestrator)
+  --all              Show sessions from all runs (default: current run only)
   --watch            (deprecated) Use 'overstory dashboard' for live monitoring
   --interval <ms>    Poll interval for --watch in milliseconds (default: 3000)
   --help, -h         Show this help`;
@@ -280,6 +299,7 @@ export async function statusCommand(args: string[]): Promise<void> {
 	const json = hasFlag(args, "--json");
 	const watch = hasFlag(args, "--watch");
 	const verbose = hasFlag(args, "--verbose");
+	const all = hasFlag(args, "--all");
 	const intervalStr = getFlag(args, "--interval");
 	const interval = intervalStr ? Number.parseInt(intervalStr, 10) : 3000;
 
@@ -296,6 +316,12 @@ export async function statusCommand(args: string[]): Promise<void> {
 	const config = await loadConfig(cwd);
 	const root = config.project.root;
 
+	let runId: string | null | undefined;
+	if (!all) {
+		const overstoryDir = join(root, ".overstory");
+		runId = await readCurrentRunId(overstoryDir);
+	}
+
 	if (watch) {
 		process.stderr.write(
 			"⚠️  --watch is deprecated. Use 'overstory dashboard' for live monitoring.\n\n",
@@ -304,7 +330,7 @@ export async function statusCommand(args: string[]): Promise<void> {
 		while (true) {
 			// Clear screen
 			process.stdout.write("\x1b[2J\x1b[H");
-			const data = await gatherStatus(root, agentName, verbose);
+			const data = await gatherStatus(root, agentName, verbose, runId);
 			if (json) {
 				process.stdout.write(`${JSON.stringify(data, null, "\t")}\n`);
 			} else {
@@ -313,7 +339,7 @@ export async function statusCommand(args: string[]): Promise<void> {
 			await Bun.sleep(interval);
 		}
 	} else {
-		const data = await gatherStatus(root, agentName, verbose);
+		const data = await gatherStatus(root, agentName, verbose, runId);
 		if (json) {
 			process.stdout.write(`${JSON.stringify(data, null, "\t")}\n`);
 		} else {
