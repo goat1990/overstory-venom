@@ -19,6 +19,7 @@ import { openSessionStore } from "../sessions/compat.ts";
 import { createRunStore } from "../sessions/store.ts";
 import { cleanupTempDir, createTempGitRepo } from "../test-helpers.ts";
 import type { AgentSession } from "../types.ts";
+import { isRunningAsRoot } from "./sling.ts";
 import {
 	buildCoordinatorBeacon,
 	type CoordinatorDeps,
@@ -1435,5 +1436,12 @@ describe("SessionStore round-trip", () => {
 		const dbPath = join(overstoryDir, "sessions.db");
 		const exists = Bun.file(dbPath).size > 0;
 		expect(exists).toBe(true);
+	});
+});
+
+describe("isRunningAsRoot (imported from sling)", () => {
+	test("is accessible from coordinator test file", () => {
+		expect(isRunningAsRoot(() => 0)).toBe(true);
+		expect(isRunningAsRoot(() => 1000)).toBe(false);
 	});
 });

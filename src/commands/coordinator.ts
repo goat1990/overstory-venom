@@ -19,6 +19,7 @@ import { createIdentity, loadIdentity } from "../agents/identity.ts";
 import { createManifestLoader, resolveModel } from "../agents/manifest.ts";
 import { loadConfig } from "../config.ts";
 import { AgentError, ValidationError } from "../errors.ts";
+import { isRunningAsRoot } from "./sling.ts";
 import { openSessionStore } from "../sessions/compat.ts";
 import { createRunStore } from "../sessions/store.ts";
 import type { AgentSession } from "../types.ts";
@@ -265,6 +266,13 @@ async function startCoordinator(args: string[], deps: CoordinatorDeps = {}): Pro
 	const shouldAttach = resolveAttach(args, !!process.stdout.isTTY);
 	const watchdogFlag = args.includes("--watchdog");
 	const monitorFlag = args.includes("--monitor");
+
+	if (isRunningAsRoot()) {
+		throw new AgentError(
+			"Cannot spawn agents as root (UID 0). The claude CLI rejects --dangerously-skip-permissions when run as root, causing the tmux session to die immediately. Run overstory as a non-root user.",
+		);
+	}
+
 	const cwd = process.cwd();
 	const config = await loadConfig(cwd);
 	const projectRoot = config.project.root;

@@ -8,6 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { ValidationError } from "../errors.ts";
+import { isRunningAsRoot } from "./sling.ts";
 import { buildMonitorBeacon, monitorCommand } from "./monitor.ts";
 
 describe("buildMonitorBeacon", () => {
@@ -134,5 +135,12 @@ describe("monitorCommand", () => {
 				throw err;
 			}
 		}
+	});
+});
+
+describe("isRunningAsRoot (imported from sling)", () => {
+	test("is accessible from monitor test file", () => {
+		expect(isRunningAsRoot(() => 0)).toBe(true);
+		expect(isRunningAsRoot(() => 1000)).toBe(false);
 	});
 });
