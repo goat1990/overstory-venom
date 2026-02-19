@@ -3,7 +3,7 @@ name: full-stack
 description: Implement a complete full-stack feature end-to-end, covering database schema, API endpoints, frontend UI, state management, tests, and E2E verification. Coordinates across all layers following project conventions. Use when a feature requires changes across the entire stack.
 argument-hint: "<feature-description-or-spec-path>"
 disable-model-invocation: true
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(*), WebFetch
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(bun *), Bash(bunx *), Bash(npx *), Bash(tsc *), WebFetch
 ---
 
 # Full-Stack Feature Implementation

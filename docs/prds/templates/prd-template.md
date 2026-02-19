@@ -39,7 +39,7 @@ High-level description of what will be built. Keep it to 3-5 paragraphs max. Inc
 ### MoSCoW Priority Key
 - **Must**: Required for launch. Feature is broken without it.
 - **Should**: Important but can ship without. Next iteration.
-- **Could**: Nice to have. Low effort to include.
+- **Could**: Desirable but not necessary. Included if time or resources permit.
 - **Won't**: Explicitly excluded from this PRD.
 
 ## Non-Functional Requirements
@@ -84,7 +84,7 @@ High-level description of what will be built. Keep it to 3-5 paragraphs max. Inc
 
 ### Data Model
 
-```
+```text
 Entity: [Name]
   - id: UUID (PK)
   - field_1: type
@@ -128,6 +128,7 @@ List the main components needed (detail comes from `/prd-design` if design-heavy
 ## Dependencies
 
 ### External
+
 | Dependency | Type | Status | Risk |
 |-----------|------|--------|------|
 | | API | Available | Low |
@@ -135,6 +136,7 @@ List the main components needed (detail comes from `/prd-design` if design-heavy
 | | Service | Not started | High |
 
 ### Internal
+
 | Dependency | Owner | Status |
 |-----------|-------|--------|
 | | Team/person | |

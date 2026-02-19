@@ -14,7 +14,7 @@ The system adds three new layers:
 
 ## Architecture Overview
 
-```
+```text
                           ┌─────────────────────────┐
                           │     PRD Document         │
                           │  (docs/prds/*.md)        │
@@ -120,6 +120,7 @@ The system adds three new layers:
 8. Outputs phased `overstory sling` commands ready to execute
 
 **Complexity classification rules:**
+
 | Level | Files | Strategy |
 |-------|-------|----------|
 | trivial | 1 file, <50 lines | 1 builder (haiku) |
@@ -144,7 +145,7 @@ The system adds three new layers:
 6. Produces a Figma-to-code mapping table
 
 **Implementation order:**
-```
+```text
 Wave 1: Design tokens + atoms (parallel)
 Wave 2: Molecules (depend on atoms)
 Wave 3: Organisms (depend on molecules)
@@ -229,7 +230,8 @@ After starting Claude Code:
 
 ```bash
 # Database (PostgreSQL)
-claude mcp add --scope project team-db -- npx -y @modelcontextprotocol/server-postgres "postgresql://..."
+# Set connection string first: export DATABASE_URL="postgresql://user:pass@host:5432/db"
+claude mcp add --scope project team-db -- npx -y @modelcontextprotocol/server-postgres "$DATABASE_URL"
 
 # Supabase
 claude mcp add --scope project supabase -- npx -y @supabase/mcp-server
@@ -309,7 +311,7 @@ cp docs/prds/templates/prd-design-template.md docs/prds/PRD-008-checkout-flow.md
 
 ## File Inventory
 
-```
+```text
 NEW FILES CREATED:
 ├── .mcp.json                                          # MCP server configuration
 ├── .claude/skills/
@@ -339,7 +341,7 @@ EXISTING FILES (unchanged):
 ## Security Considerations
 
 1. **No secrets in `.mcp.json`**: All authentication uses OAuth flows via `/mcp`, not hardcoded tokens
-2. **Skills are read-only by default**: `/estimate` cannot modify files. `/prd` only writes specs via `overstory spec write`
+2. **Skill write boundaries are explicit**: `/estimate` is strictly read-only. `/prd` only writes specs via `overstory spec write`. The remaining skills (`/design-to-code`, `/full-stack`, `/mobile-screen`) perform code and file writes within project conventions
 3. **MCP servers use official endpoints**: No third-party proxies
 4. **Playwright runs locally**: No remote browser access
 5. **File scope enforcement**: Skills that write code (`/design-to-code`, `/full-stack`, `/mobile-screen`) respect project conventions

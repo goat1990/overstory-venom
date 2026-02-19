@@ -21,16 +21,18 @@ If no path is provided, ask the user for the PRD location or accept inline conte
 Extract and validate these sections from the PRD:
 
 ### Required
-- **Objective**: What is being built and why
-- **Requisitos funcionales**: Numbered list (RF-01, RF-02, ...)
-- **Criterios de aceptacion**: Testable acceptance criteria (AC-01, AC-02, ...)
+- **Objective** (also: "Objetivo"): What is being built and why
+- **Functional Requirements** (also: "Requisitos funcionales"): Numbered list (RF-01, RF-02, ...)
+- **Acceptance Criteria** (also: "Criterios de aceptacion"): Testable acceptance criteria (AC-01, AC-02, ...)
 
 ### Optional (infer if missing)
-- **Usuarios objetivo**: Who benefits
-- **Requisitos no funcionales**: Performance, security, accessibility
-- **Dependencias externas**: APIs, services, packages
-- **Fuera de alcance**: What is explicitly excluded
-- **Riesgos**: Known risks and mitigations
+- **Target Users** (also: "Usuarios objetivo"): Who benefits
+- **Non-Functional Requirements** (also: "Requisitos no funcionales"): Performance, security, accessibility
+- **Dependencies** (also: "Dependencias externas"): APIs, services, packages
+- **Out of Scope** (also: "Fuera de alcance"): What is explicitly excluded
+- **Risks** (also: "Riesgos"): Known risks and mitigations
+
+Accept both English and Spanish header variants. The PRD templates use English headers; older documents may use Spanish.
 
 If any required section is missing or vague, list what is missing and ask the user to clarify before proceeding.
 
@@ -46,7 +48,7 @@ For each functional requirement:
 
 Build a table:
 
-```
+```text
 | File | Lines | Imports | Tests? | Git churn (3mo) | Risk |
 |------|-------|---------|--------|-----------------|------|
 ```
@@ -119,7 +121,7 @@ SPEC
 
 Generate the complete execution plan as a phased sling sequence:
 
-```
+```bash
 ## Phase 0: Exploration (if needed)
 overstory sling <task-id> --capability scout --name <name> --spec <path>
 
@@ -146,14 +148,14 @@ Files affected, risk levels, test gaps.
 
 ### 3. Task Breakdown Table
 
-```
+```text
 | # | Task | Complexity | Capability | Model | Files | Depends On |
 |---|------|-----------|-----------|-------|-------|------------|
 ```
 
 ### 4. Dependency Graph (ASCII)
 
-```
+```text
 scout-explore ──┐
                 ├──> builder-api ──┐
                 │                  ├──> builder-integration ──> reviewer-final
@@ -167,7 +169,7 @@ Ready-to-paste `overstory sling` commands grouped by phase.
 
 ### 6. Cost Estimate
 
-```
+```text
 | Phase | Agents | Estimated model | Approximate tokens |
 |-------|--------|----------------|--------------------|
 ```

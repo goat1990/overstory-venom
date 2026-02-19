@@ -38,7 +38,7 @@ Use it to extract:
 
 ### Build the design inventory
 
-```
+```text
 | Screen/Frame | Components | States | Breakpoints | Tokens Used |
 |-------------|-----------|--------|-------------|-------------|
 ```
@@ -90,7 +90,7 @@ Map each screen to components using atomic design:
 
 ### Build the component tree
 
-```
+```text
 Page: ProductCatalog
   ├── Organism: NavigationBar
   │   ├── Molecule: SearchField
@@ -135,7 +135,7 @@ For each screen, define behavior across breakpoints:
 Generate Overstory tasks following atomic design order:
 
 ### Wave 1: Design Tokens + Atoms (parallel, no dependencies)
-```
+```text
 Task: Setup design tokens (trivial, 1 builder-haiku)
   Files: src/tokens.ts, src/tokens.css
 
@@ -144,25 +144,25 @@ Task: Build atom components (moderate, 1 builder-sonnet per 3-5 atoms)
 ```
 
 ### Wave 2: Molecules (depend on atoms)
-```
+```text
 Task: Build molecule components (moderate, 1 builder per 2-3 molecules)
   Files: src/components/molecules/<name>.tsx, ...
 ```
 
 ### Wave 3: Organisms (depend on molecules)
-```
+```text
 Task: Build organism components (complex, 1 builder-sonnet each)
   Files: src/components/organisms/<name>.tsx, ...
 ```
 
 ### Wave 4: Pages + Integration (depend on organisms)
-```
+```text
 Task: Build page layouts (complex, 1 lead + builders)
   Files: src/pages/<name>.tsx, src/routes/...
 ```
 
 ### Wave 5: Testing + Review
-```
+```text
 Task: E2E testing (1 builder with Playwright)
 Task: Design review (1 reviewer comparing implementation vs Figma)
 Task: Accessibility audit (1 reviewer checking WCAG compliance)
@@ -198,7 +198,7 @@ ASCII hierarchy of all components.
 
 ### 4. Component Inventory Table
 
-```
+```text
 | Level | Component | States | Props | Mobile variant? | Complexity |
 |-------|-----------|--------|-------|----------------|-----------|
 ```
@@ -211,7 +211,7 @@ Phased `overstory sling` commands with atomic design ordering.
 
 ### 7. Figma-to-Code Mapping
 
-```
+```text
 | Figma Frame | Component | File Path | Status |
 |-------------|-----------|-----------|--------|
 ```

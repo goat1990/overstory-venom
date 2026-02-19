@@ -46,7 +46,7 @@ git log --oneline --since="3 months ago" -- <file> | wc -l
 git shortlog -sn --since="6 months ago" -- <file>
 
 # Coupling (files commonly changed together)
-git log --oneline --since="3 months ago" --name-only -- <file> | sort | uniq -c | sort -rn | head -10
+git log --pretty=format: --since="3 months ago" --name-only -- <file> | sort | uniq -c | sort -rn | head -10
 ```
 
 ## Step 2: Complexity Dimensions
