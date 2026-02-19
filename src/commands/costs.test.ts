@@ -440,8 +440,17 @@ describe("costsCommand", () => {
 		test("filters sessions by run ID directly from metrics.db", async () => {
 			const dbPath = join(tempDir, ".overstory", "metrics.db");
 			const store = createMetricsStore(dbPath);
-			store.recordSession(makeMetrics({ agentName: "builder-1", beadId: "task-001", runId: "run-2026-01-01" }));
-			store.recordSession(makeMetrics({ agentName: "scout-1", beadId: "task-002", capability: "scout", runId: "run-other" }));
+			store.recordSession(
+				makeMetrics({ agentName: "builder-1", beadId: "task-001", runId: "run-2026-01-01" }),
+			);
+			store.recordSession(
+				makeMetrics({
+					agentName: "scout-1",
+					beadId: "task-002",
+					capability: "scout",
+					runId: "run-other",
+				}),
+			);
 			store.close();
 
 			await costsCommand(["--json", "--run", "run-2026-01-01"]);
@@ -455,7 +464,9 @@ describe("costsCommand", () => {
 		test("returns empty when no sessions match run ID", async () => {
 			const dbPath = join(tempDir, ".overstory", "metrics.db");
 			const store = createMetricsStore(dbPath);
-			store.recordSession(makeMetrics({ agentName: "builder-1", beadId: "t1", runId: "run-2026-01-01" }));
+			store.recordSession(
+				makeMetrics({ agentName: "builder-1", beadId: "t1", runId: "run-2026-01-01" }),
+			);
 			store.close();
 
 			await costsCommand(["--json", "--run", "run-nonexistent"]);
