@@ -28,6 +28,7 @@ import type { BeadIssue } from "../beads/client.ts";
 import { createBeadsClient } from "../beads/client.ts";
 import { loadConfig } from "../config.ts";
 import { AgentError, HierarchyError, ValidationError } from "../errors.ts";
+import { inferDomain } from "../insights/analyzer.ts";
 import { createMulchClient } from "../mulch/client.ts";
 import { openSessionStore } from "../sessions/compat.ts";
 import { createRunStore } from "../sessions/store.ts";
@@ -73,6 +74,28 @@ export function calculateStaggerDelay(
  */
 export function isRunningAsRoot(getuid: (() => number) | undefined = process.getuid): boolean {
 	return getuid?.() === 0;
+}
+
+/**
+ * Infer mulch domains from a list of file paths.
+ * Returns unique domains sorted alphabetically, falling back to
+ * configured defaults if no domains could be inferred.
+ */
+export function inferDomainsFromFiles(
+	files: readonly string[],
+	configDomains: readonly string[],
+): string[] {
+	const inferred = new Set<string>();
+	for (const file of files) {
+		const domain = inferDomain(file);
+		if (domain !== null) {
+			inferred.add(domain);
+		}
+	}
+	if (inferred.size === 0) {
+		return [...configDomains];
+	}
+	return [...inferred].sort();
 }
 
 /**
@@ -410,7 +433,9 @@ export async function slingCommand(args: string[]): Promise<void> {
 			branchName,
 			worktreePath,
 			fileScope,
-			mulchDomains: config.mulch.enabled ? config.mulch.domains : [],
+			mulchDomains: config.mulch.enabled
+			? inferDomainsFromFiles(fileScope, config.mulch.domains)
+			: [],
 			parentAgent: parentAgent,
 			depth,
 			canSpawn: agentDef.canSpawn,
