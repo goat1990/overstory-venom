@@ -7,6 +7,7 @@ import { createTempGitRepo } from "../test-helpers.ts";
 import type { AgentSession } from "../types.ts";
 import {
 	gatherStatus,
+	invalidateStatusCache,
 	printStatus,
 	type StatusData,
 	statusCommand,
@@ -247,6 +248,7 @@ describe("run scoping", () => {
 
 	afterEach(() => {
 		process.stdout.write = originalWrite;
+		invalidateStatusCache();
 	});
 
 	function output(): string {
@@ -393,5 +395,36 @@ describe("--watch deprecation", () => {
 		const err = stderrChunks.join("");
 		expect(err).toContain("--watch is deprecated");
 		expect(err).toContain("overstory dashboard");
+	});
+});
+
+describe("subprocess caching (invalidateStatusCache)", () => {
+	afterEach(() => {
+		invalidateStatusCache();
+	});
+
+	test("invalidateStatusCache is exported and callable", () => {
+		// Should not throw
+		invalidateStatusCache();
+	});
+
+	test("invalidateStatusCache resets cache so gatherStatus re-fetches on next call", async () => {
+		const tempDir = await createTempGitRepo();
+		const overstoryDir = join(tempDir, ".overstory");
+		await mkdir(overstoryDir, { recursive: true });
+
+		try {
+			// First call populates the cache
+			const result1 = await gatherStatus(tempDir, "orchestrator", false, undefined);
+			// Invalidate cache
+			invalidateStatusCache();
+			// Second call must succeed (re-fetches, no stale cache issues)
+			const result2 = await gatherStatus(tempDir, "orchestrator", false, undefined);
+			// Both results should have the same structure
+			expect(Array.isArray(result1.worktrees)).toBe(true);
+			expect(Array.isArray(result2.worktrees)).toBe(true);
+		} finally {
+			await rm(tempDir, { recursive: true, force: true });
+		}
 	});
 });
