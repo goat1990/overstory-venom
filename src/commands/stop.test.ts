@@ -114,12 +114,9 @@ beforeEach(async () => {
 	// Write a minimal config.yaml so loadConfig succeeds
 	await Bun.write(
 		join(overstoryDir, "config.yaml"),
-		[
-			"project:",
-			"  name: test-project",
-			`  root: ${tempDir}`,
-			"  canonicalBranch: main",
-		].join("\n"),
+		["project:", "  name: test-project", `  root: ${tempDir}`, "  canonicalBranch: main"].join(
+			"\n",
+		),
 	);
 
 	// Override cwd so stop commands find our temp project
@@ -367,9 +364,7 @@ describe("stopCommand --clean-worktree", () => {
 		saveSessionsToDb([session]);
 
 		const { deps, worktreeCalls } = makeDeps({ [session.tmuxSession]: true });
-		const output = await captureStdout(() =>
-			stopCommand(["my-builder", "--clean-worktree"], deps),
-		);
+		const output = await captureStdout(() => stopCommand(["my-builder", "--clean-worktree"], deps));
 
 		expect(output).toContain(`Worktree removed: ${session.worktreePath}`);
 		expect(worktreeCalls.remove).toHaveLength(1);
@@ -381,9 +376,7 @@ describe("stopCommand --clean-worktree", () => {
 		saveSessionsToDb([session]);
 
 		const { deps, worktreeCalls } = makeDeps({ [session.tmuxSession]: true });
-		await captureStdout(() =>
-			stopCommand(["my-builder", "--clean-worktree", "--force"], deps),
-		);
+		await captureStdout(() => stopCommand(["my-builder", "--clean-worktree", "--force"], deps));
 
 		expect(worktreeCalls.remove).toHaveLength(1);
 		expect(worktreeCalls.remove[0]?.options?.force).toBe(true);
