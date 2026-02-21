@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.9] - 2026-02-21
+
+### Added
+
+#### New CLI Commands
+- `overstory stop <agent-name>` — explicitly terminate a running agent by killing its tmux session, marking the session as completed in SessionStore, with optional `--clean-worktree` to remove the agent's worktree (17 tests, DI pattern via `StopDeps`)
+
+#### Sling Guard Features
+- **Bead lock** — `checkBeadLock()` pure function prevents concurrent agents from working the same bead ID, enforced in `slingCommand` before spawning
+- **Run session cap** — `checkRunSessionLimit()` pure function with `maxSessionsPerRun` config field (default 0 = unlimited), enforced in `slingCommand` to limit concurrent agents per run
+- **`--skip-scout` flag** — passes through to overlay via `OverlayConfig.skipScout`, renders `SKIP_SCOUT_SECTION` in template for lead agents that want to skip scout phase
+
+#### Agent Pipeline Improvements
+- **Complexity-tiered pipeline** in lead agent definition — leads now assess task complexity (simple/moderate/complex) before deciding whether to spawn scouts, builders, and reviewers
+- Scouts made optional for simple/moderate tasks (SHOULD vs MUST)
+- Reviewers made optional with self-verification path for simple/moderate tasks
+- `SCOUT_SKIP` and `REVIEW_SKIP` failure modes softened to warnings
+- Scout and reviewer agents simplified: replaced `INSIGHT:` protocol with plain notable findings
+
+#### Testing
+- Test suite grew from 1996 to 2026 tests across 74 files (5023 expect() calls)
+
+### Changed
+- Lead agent role reframed to reflect that leads can be doers for simple tasks, not just delegators
+- Lead propulsion principle updated to assess complexity before acting
+- Lead cost awareness section no longer mandates reviewers
+
+### Fixed
+- Biome formatting in `stop.test.ts` (pre-existing lint issue)
+
 ## [0.5.8] - 2026-02-20
 
 ### Added
@@ -447,7 +477,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Biome configuration for formatting and linting
 - TypeScript strict mode with `noUncheckedIndexedAccess`
 
-[Unreleased]: https://github.com/jayminwest/overstory/compare/v0.5.8...HEAD
+[Unreleased]: https://github.com/jayminwest/overstory/compare/v0.5.9...HEAD
+[0.5.9]: https://github.com/jayminwest/overstory/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/jayminwest/overstory/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/jayminwest/overstory/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/jayminwest/overstory/compare/v0.5.5...v0.5.6

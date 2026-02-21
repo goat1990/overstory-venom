@@ -126,6 +126,11 @@ overstory sling <task-id>              Spawn a worker agent
   --files <f1,f2,...>                    Exclusive file scope
   --parent <agent-name>                  Parent (for hierarchy tracking)
   --depth <n>                            Current hierarchy depth
+  --skip-scout                           Skip scout phase (passed to lead overlay)
+  --json                                 JSON output
+
+overstory stop <agent-name>            Terminate a running agent
+  --clean-worktree                       Remove the agent's worktree (best-effort)
   --json                                 JSON output
 
 overstory prime                         Load context for orchestrator/agent
@@ -267,13 +272,13 @@ Global Flags:
 - **Dependencies**: Zero runtime dependencies — only Bun built-in APIs
 - **Database**: SQLite via `bun:sqlite` (WAL mode for concurrent access)
 - **Linting**: Biome (formatter + linter)
-- **Testing**: `bun test` (1996 tests across 73 files, colocated with source)
+- **Testing**: `bun test` (2026 tests across 74 files, colocated with source)
 - **External CLIs**: `bd` (beads), `mulch`, `git`, `tmux` — invoked as subprocesses
 
 ## Development
 
 ```bash
-# Run tests (1996 tests across 73 files)
+# Run tests (2026 tests across 74 files)
 bun test
 
 # Run a single test
@@ -313,7 +318,7 @@ overstory/
     types.ts                      Shared types and interfaces
     config.ts                     Config loader + validation
     errors.ts                     Custom error types
-    commands/                     One file per CLI subcommand (29 commands)
+    commands/                     One file per CLI subcommand (30 commands)
       agents.ts                   Agent discovery and querying
       coordinator.ts              Persistent orchestrator lifecycle
       supervisor.ts               Team lead management
@@ -341,6 +346,7 @@ overstory/
       spec.ts                     Task spec management
       errors.ts                   Aggregated error view
       replay.ts                   Interleaved event replay
+      stop.ts                     Agent termination
       costs.ts                    Token/cost analysis
       metrics.ts                  Session metrics
       completions.ts              Shell completion generation (bash/zsh/fish)

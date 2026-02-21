@@ -50,7 +50,7 @@ Purpose-built messaging via `bun:sqlite` in `.overstory/mail.db`. WAL mode for c
 ```
 overstory/                        # This repo (the overstory tool itself)
   src/
-    index.ts                      # CLI entry point (command router, 29 commands)
+    index.ts                      # CLI entry point (command router, 30 commands)
     types.ts                      # ALL shared types and interfaces
     config.ts                     # Config loader + defaults + validation
     errors.ts                     # Custom error types (extend OverstoryError)
@@ -82,6 +82,7 @@ overstory/                        # This repo (the overstory tool itself)
       errors.ts                   # overstory errors (aggregated error view)
       replay.ts                   # overstory replay (multi-agent replay)
       run.ts                      # overstory run list/show/complete
+      stop.ts                     # overstory stop (terminate agent)
       costs.ts                    # overstory costs (token/cost analysis)
       metrics.ts                  # overstory metrics
       completions.ts              # overstory --completions (shell completions)
@@ -245,7 +246,12 @@ overstory sling <task-id>              Spawn a worker agent
   --files <f1,f2,...>                    Exclusive file scope (comma-separated)
   --parent <agent-name>                  Parent (for hierarchy tracking)
   --depth <n>                            Current hierarchy depth (default: 0)
+  --skip-scout                           Skip scout phase (passed to lead overlay)
   --force-hierarchy                      Bypass hierarchy validation (debugging only)
+  --json                                 JSON output
+
+overstory stop <agent-name>            Terminate a running agent
+  --clean-worktree                       Remove the agent's worktree (best-effort)
   --json                                 JSON output
 
 overstory prime                         Load context for orchestrator/agent
